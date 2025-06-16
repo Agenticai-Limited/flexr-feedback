@@ -1,0 +1,73 @@
+# Python (Backend) Specific
+# -------------------------
+# Virtual environment
+venv/
+.venv/
+env/
+.env/
+
+# Byte-code files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+
+# IDE-specific files (e.g., VS Code, PyCharm)
+.vscode/
+.idea/
+
+# Editor swap files
+*~
+
+# Test and coverage related files
+.pytest_cache/
+.coverage
+htmlcov/
+.nox/
+
+# Database files (if local development uses them)
+*.sqlite3
+*.db
+/data/*.db # Example if you have a local data folder with db files
+
+# Log files
+*.log
+
+# Environment variables
+.env
+.flaskenv
+.secrets.toml
+
+# FastAPI specific (if any generated files)
+# Example: If you generate config files that are not meant for version control
+# generated_config.py
+
+# Frontend (React + Vite) Specific
+# ---------------------------------
+# Node modules
+node_modules/
+
+# Build output directory
+dist/
+build/
+out/
+
+# Vite-specific cache and temp files
+.vite/
+
+# Lock files
+package-lock.json
+yarn.lock # if using yarn instead of npm
+pnpm-lock.yaml # if using pnpm
+
+# macOS specific files
+.DS_Store
+
+# Windows specific files
+Thumbs.db
+
+# Other common temporary files
+*.tmp
+*.bak
+
+logs/
