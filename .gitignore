@@ -71,3 +71,6 @@ Thumbs.db
 *.bak
 
 logs/
+
+*.log
+pid.file
