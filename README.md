@@ -51,9 +51,10 @@ A feedback and logging analysis system for FlexR, featuring a **React + Vite fro
     uv pip install -r requirements.txt
     ```
 
-3.  Set up environment variables (optional):
+3.  Set up environment variables:
 
     ```env
+	DATABASE_URL=
     SECRET_KEY=your-secret-key
     ALGORITHM=HS256
     ACCESS_TOKEN_EXPIRE_MINUTES=120
