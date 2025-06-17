@@ -19,11 +19,40 @@ def success_response(data):
         "data": data
     }
 
+# User endpoints
+@router.post("/users", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    user: schemas.UserCreate, 
+    db: Session = Depends(get_db)
+):
+    """
+    Create new user.
+    """
+    return crud.create_user(db=db, user=user)
+
+@router.get("/users", response_model=List[schemas.User])
+async def get_users(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(get_current_user)
+):
+    """
+    Get a list of users. Only for admin users.
+    """
+    db_user = crud.get_user(db, current_user.username)
+    if not db_user or not db_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to access this resource."
+        )
+    return crud.get_users(db=db, skip=skip, limit=limit)
+
 # Authentication endpoints
 @router.get("/me")
 async def get_current_user_info(
-    current_user: schemas.TokenData = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(get_current_user)
 ):
     """
     Get current user information endpoint
@@ -119,18 +148,15 @@ async def get_qa_logs(
         )
     return crud.get_qa_logs(db=db, skip=skip, limit=limit, search=search)
 
-# Low Similarity Queries endpoints
-@router.get("/low-similarity", response_model=List[schemas.LowSimilarityQuery])
-async def get_low_similarity_queries(
+@router.get("/low-relevance-results", response_model=List[schemas.LowRelevanceResultSummary])
+async def get_low_relevance_results(
     skip: int = 0,
     limit: int = 100,
-    min_score: Optional[float] = None,
-    max_score: Optional[float] = None,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(get_current_user)
 ):
     """
-    Get low similarity queries endpoint
+    Get low relevance results summary, grouped by query.
     """
     if skip < 0:
         raise HTTPException(
@@ -142,30 +168,12 @@ async def get_low_similarity_queries(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Limit must be between 1 and 100"
         )
-    if min_score is not None and (min_score < 0 or min_score > 1):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Minimum score must be between 0 and 1"
-        )
-    if max_score is not None and (max_score < 0 or max_score > 1):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Maximum score must be between 0 and 1"
-        )
-    if min_score is not None and max_score is not None and min_score > max_score:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Minimum score cannot be greater than maximum score"
-        )
-    return crud.get_low_similarity_queries(
+    return crud.get_low_relevance_results(
         db=db,
         skip=skip,
-        limit=limit,
-        min_score=min_score,
-        max_score=max_score
+        limit=limit
     )
 
-# No Result Logs endpoints
 @router.get("/no-result/summary", response_model=List[schemas.NoResultSummary])
 async def get_no_result_summary(
     limit: int = 10,
@@ -180,4 +188,15 @@ async def get_no_result_summary(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Limit must be between 1 and 100"
         )
-    return crud.get_no_result_summary(db=db, limit=limit) 
+    return crud.get_no_result_summary(db=db, limit=limit)
+
+# Rerank Results endpoints
+@router.post("/rerank-results", response_model=schemas.RerankResult)
+async def create_rerank_result(
+    rerank_result: schemas.RerankResultCreate,
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new rerank result.
+    """
+    return crud.create_rerank_result(db=db, rerank_result=rerank_result) 

@@ -17,22 +17,54 @@ export interface QALog {
   response: string;
   id: number;
   created_at: string;
+  rerank_results: RerankResult[];
 }
 
-export interface LowSimilarityQuery {
-  query_type: number;
-  col: string;
-  query_content: string;
-  similarity_score: number;
-  metric_type: string;
-  results: string | null;
+export interface RerankResult {
+  task_id: string;
+  original_index: number;
+  content: string | null;
+  similarity: number;
+  relevance: number;
+  metadata: object | null;
   id: number;
   created_at: string;
+}
+
+export interface LowRelevanceResult {
+  query: string;
+  original_index: number;
+  relevance_score: number;
+  content: string | null;
+  id: number;
+  created_at: string;
+}
+
+export interface LowRelevanceSummary {
+  query: string;
+  count: number;
+  avg_relevance_score: number;
+  results: LowRelevanceResult[];
 }
 
 export interface NoResultSummary {
   query: string;
   count: number;
+}
+
+export interface User {
+  id: number;
+  username: string;
+  full_name: string | null;
+  is_admin: boolean;
+  created_at: string;
+}
+
+export interface UserCreate {
+  username: string;
+  password: string;
+  full_name?: string;
+  is_admin?: boolean;
 }
 
 // User info type

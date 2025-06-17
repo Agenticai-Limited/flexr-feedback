@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Layout, Menu, Button, Avatar, Dropdown, Typography, Space } from 'antd';
 import type { MenuProps } from 'antd';
-import { 
-  DashboardOutlined, 
-  MessageOutlined, 
-  FileTextOutlined, 
+import {
+  DashboardOutlined,
+  MessageOutlined,
+  FileTextOutlined,
   ExclamationCircleOutlined,
   StopOutlined,
   UserOutlined,
@@ -42,14 +42,19 @@ const MainLayout: React.FC = () => {
       label: 'QA Logs',
     },
     {
-      key: '/low-similarity',
+      key: '/low-relevance',
       icon: <ExclamationCircleOutlined />,
-      label: 'Low Similarity Analysis',
+      label: 'Low Relevance Analysis',
     },
     {
       key: '/no-result',
       icon: <StopOutlined />,
       label: 'No Result Analysis',
+    },
+    {
+      key: '/users',
+      icon: <UserOutlined />,
+      label: 'User Management',
     },
   ];
 
@@ -72,9 +77,9 @@ const MainLayout: React.FC = () => {
 
   return (
     <Layout className="min-h-screen">
-      <Sider 
-        trigger={null} 
-        collapsible 
+      <Sider
+        trigger={null}
+        collapsible
         collapsed={collapsed}
         className="bg-white shadow-md"
         width={250}
@@ -86,12 +91,12 @@ const MainLayout: React.FC = () => {
             </div>
             {!collapsed && (
               <Title level={4} className="!mb-0 !text-gray-800">
-                Admin System
+                FlexR Admin
               </Title>
             )}
           </div>
         </div>
-        
+
         <Menu
           mode="inline"
           selectedKeys={[location.pathname]}
@@ -100,7 +105,7 @@ const MainLayout: React.FC = () => {
           className="border-none mt-4"
         />
       </Sider>
-      
+
       <Layout>
         <Header className="bg-white shadow-sm px-4 flex justify-between items-center">
           <Button
@@ -109,7 +114,7 @@ const MainLayout: React.FC = () => {
             onClick={() => setCollapsed(!collapsed)}
             className="text-lg w-16 h-16"
           />
-          
+
           <Space>
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <Button type="text" className="flex items-center space-x-2 h-auto p-2">
@@ -119,7 +124,7 @@ const MainLayout: React.FC = () => {
             </Dropdown>
           </Space>
         </Header>
-        
+
         <Content className="p-6 bg-gray-50">
           <div className="bg-white rounded-lg shadow-sm min-h-[calc(100vh-140px)]">
             <Outlet />

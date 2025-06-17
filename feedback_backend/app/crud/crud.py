@@ -1,8 +1,8 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, desc
 from typing import List, Optional
 from loguru import logger
-from app.models.models import User, Feedback, QALogs, LowSimilarityQueries, NoResultLogs
+from app.models.models import User, Feedback, QALogs, NoResultLogs, LowRelevanceResults, RerankResults
 from app.schemas import schemas
 from app.core.security import verify_password
 import bcrypt
@@ -19,6 +19,39 @@ def get_user(db: Session, username: str) -> Optional[User]:
         logger.error(f"Error in get_user: {str(e)}")
         raise
 
+def get_users(db: Session, skip: int = 0, limit: int = 100) -> List[User]:
+    """
+    Get all users.
+    """
+    try:
+        return db.query(User).offset(skip).limit(limit).all()
+    except Exception as e:
+        logger.error(f"Error in get_users: {str(e)}")
+        raise
+
+def create_user(db: Session, user: schemas.UserCreate) -> User:
+    """
+    Create a new user.
+    """
+    db_user_exist = get_user(db, user.username)
+    if db_user_exist:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already registered"
+        )
+    
+    hashed_password = bcrypt.hashpw(user.password.encode('utf-8'), bcrypt.gensalt())
+    db_user = User(
+        username=user.username, 
+        password=hashed_password.decode('utf-8'),
+        full_name=user.full_name,
+        is_admin=user.is_admin
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
 def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
     """
     Authenticate user by verifying the password
@@ -28,6 +61,13 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
         if not user:
             logger.warning(f"User not found: {username}")
             return None
+
+        if not user.is_admin:
+            logger.warning(f"Login attempt by non-admin user: {username}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admin users can log in."
+            )
 
         # Log the stored password hash for debugging
         logger.debug(f"Stored password hash: {user.password}")
@@ -59,6 +99,16 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
         )
 
 # Feedback operations
+def create_feedback(db: Session, feedback: schemas.FeedbackCreate) -> Feedback:
+    """
+    Create a new feedback entry.
+    """
+    db_feedback = Feedback(**feedback.model_dump())
+    db.add(db_feedback)
+    db.commit()
+    db.refresh(db_feedback)
+    return db_feedback
+
 def get_feedback_summary(db: Session, limit: int = 10) -> List[dict]:
     """
     Get feedback summary grouped by query
@@ -82,6 +132,16 @@ def get_feedback_summary(db: Session, limit: int = 10) -> List[dict]:
         raise
 
 # QA Logs operations
+def create_qa_log(db: Session, qa_log: schemas.QALogCreate) -> QALogs:
+    """
+    Create a new QA log.
+    """
+    db_qa_log = QALogs(**qa_log.model_dump())
+    db.add(db_qa_log)
+    db.commit()
+    db.refresh(db_qa_log)
+    return db_qa_log
+
 def get_qa_logs(
     db: Session,
     skip: int = 0,
@@ -89,40 +149,83 @@ def get_qa_logs(
     search: Optional[str] = None
 ) -> List[QALogs]:
     """
-    Get QA logs with optional search
+    Get QA logs with optional search and rerank results.
     """
     try:
-        query = db.query(QALogs)
+        query = db.query(QALogs).options(joinedload(QALogs.rerank_results))
         if search:
             query = query.filter(QALogs.query.ilike(f"%{search}%"))
-        return query.offset(skip).limit(limit).all()
+        return query.order_by(desc(QALogs.created_at)).offset(skip).limit(limit).all()
     except Exception as e:
         logger.error(f"Error in get_qa_logs: {str(e)}")
         raise
 
-# Low Similarity Queries operations
-def get_low_similarity_queries(
+# Low Relevance Results operations
+def create_low_relevance_result(db: Session, low_relevance_result: schemas.LowRelevanceResultCreate) -> LowRelevanceResults:
+    """
+    Create a new low relevance result log.
+    """
+    db_log = LowRelevanceResults(**low_relevance_result.model_dump())
+    db.add(db_log)
+    db.commit()
+    db.refresh(db_log)
+    return db_log
+
+def get_low_relevance_results(
     db: Session,
     skip: int = 0,
-    limit: int = 100,
-    min_score: Optional[float] = None,
-    max_score: Optional[float] = None
-) -> List[LowSimilarityQueries]:
+    limit: int = 100
+) -> List[dict]:
     """
-    Get low similarity queries with optional score range filter
+    Get low relevance results summary, grouped by query, with nested details.
     """
     try:
-        query = db.query(LowSimilarityQueries)
-        if min_score is not None:
-            query = query.filter(LowSimilarityQueries.similarity_score >= min_score)
-        if max_score is not None:
-            query = query.filter(LowSimilarityQueries.similarity_score <= max_score)
-        return query.offset(skip).limit(limit).all()
+        # Construct a JSON object for each detailed row
+        detail_object = func.json_build_object(
+            "id", LowRelevanceResults.id,
+            "query", LowRelevanceResults.query,
+            "original_index", LowRelevanceResults.original_index,
+            "relevance_score", LowRelevanceResults.relevance_score,
+            "content", LowRelevanceResults.content,
+            "created_at", LowRelevanceResults.created_at
+        )
+
+        return db.query(
+            LowRelevanceResults.query,
+            func.count(LowRelevanceResults.id).label("count"),
+            func.avg(LowRelevanceResults.relevance_score).label("avg_relevance_score"),
+            func.json_agg(detail_object).label("results")
+        ).group_by(
+            LowRelevanceResults.query
+        ).order_by(
+            desc("count")
+        ).offset(skip).limit(limit).all()
     except Exception as e:
-        logger.error(f"Error in get_low_similarity_queries: {str(e)}")
+        logger.error(f"Error in get_low_relevance_results: {str(e)}")
         raise
 
+# Rerank Results operations
+def create_rerank_result(db: Session, rerank_result: schemas.RerankResultCreate) -> RerankResults:
+    """
+    Create a new rerank result.
+    """
+    db_rerank_result = RerankResults(**rerank_result.model_dump())
+    db.add(db_rerank_result)
+    db.commit()
+    db.refresh(db_rerank_result)
+    return db_rerank_result
+
 # No Result Logs operations
+def create_no_result_log(db: Session, no_result_log: schemas.NoResultLogCreate) -> NoResultLogs:
+    """
+    Create a new no result log.
+    """
+    db_log = NoResultLogs(**no_result_log.model_dump())
+    db.add(db_log)
+    db.commit()
+    db.refresh(db_log)
+    return db_log
+
 def get_no_result_summary(db: Session, limit: int = 10) -> List[dict]:
     """
     Get summary of no result queries

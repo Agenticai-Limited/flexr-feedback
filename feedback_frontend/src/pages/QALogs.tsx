@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Table, 
-  Card, 
-  Typography, 
-  Alert, 
-  Spin, 
+import {
+  Table,
+  Card,
+  Typography,
+  Alert,
+  Spin,
   Input,
   Space,
   Button,
@@ -13,13 +13,15 @@ import {
   Tooltip
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { SearchOutlined, EyeOutlined, CalendarOutlined } from '@ant-design/icons';
+import { SearchOutlined, EyeOutlined, CalendarOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { QALog } from '../types';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import { QALog, RerankResult } from '../types';
 import { qaLogsAPI } from '../services/api';
 
-const { Title } = Typography;
+const { Title, Paragraph, Text } = Typography;
 const { Search } = Input;
+dayjs.extend(relativeTime);
 
 const QALogs: React.FC = () => {
   const [data, setData] = useState<QALog[]>([]);
@@ -43,8 +45,8 @@ const QALogs: React.FC = () => {
       setLoading(true);
       const skip = (pagination.current - 1) * pagination.pageSize;
       const result = await qaLogsAPI.getLogs(
-        skip, 
-        pagination.pageSize, 
+        skip,
+        pagination.pageSize,
         searchText || undefined
       );
       setData(result);
@@ -52,8 +54,8 @@ const QALogs: React.FC = () => {
       // For now, we'll estimate based on the returned data
       setPagination(prev => ({
         ...prev,
-        total: result.length < pagination.pageSize ? 
-          skip + result.length : 
+        total: result.length < pagination.pageSize ?
+          skip + result.length :
           skip + result.length + 1
       }));
     } catch (err) {
@@ -118,6 +120,17 @@ const QALogs: React.FC = () => {
       ),
     },
     {
+      title: 'Reranked Results',
+      dataIndex: 'rerank_results',
+      key: 'rerank_results',
+      width: '150px',
+      render: (results: RerankResult[]) => (
+        <Tag icon={<InfoCircleOutlined />} color={results?.length > 0 ? "success" : "default"}>
+          {results?.length || 0} items
+        </Tag>
+      ),
+    },
+    {
       title: 'Created At',
       dataIndex: 'created_at',
       key: 'created_at',
@@ -179,7 +192,7 @@ const QALogs: React.FC = () => {
           <div>
             <Title level={5} className="!mb-2">Search Filters</Title>
             <Search
-              placeholder="Search by query content, response, or task ID"
+              placeholder="Search by query content"
               allowClear
               enterButton={<SearchOutlined />}
               size="large"
@@ -201,11 +214,12 @@ const QALogs: React.FC = () => {
             ...pagination,
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total, range) => 
+            showTotal: (total, range) =>
               `${range[0]}-${range[1]} of ${total} items`,
           }}
           onChange={handleTableChange}
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1200 }}
+          expandable={{ expandedRowRender }}
         />
       </Card>
 
@@ -223,21 +237,30 @@ const QALogs: React.FC = () => {
               <Title level={5}>Task ID</Title>
               <Tag color="blue" className="font-mono">{selectedRecord.task_id}</Tag>
             </div>
-            
+
             <div>
               <Title level={5}>Query</Title>
               <div className="bg-gray-50 p-4 rounded border">
                 {selectedRecord.query}
               </div>
             </div>
-            
+
             <div>
               <Title level={5}>Response</Title>
-              <div className="bg-blue-50 p-4 rounded border">
+              <div className="bg-blue-50 p-4 rounded border max-h-60 overflow-y-auto">
                 {selectedRecord.response}
               </div>
             </div>
-            
+
+            {selectedRecord.rerank_results && selectedRecord.rerank_results.length > 0 && (
+              <div>
+                <Title level={5}>Reranked Results</Title>
+                <div className="bg-gray-50 p-2 rounded border">
+                  {expandedRowRender(selectedRecord)}
+                </div>
+              </div>
+            )}
+
             <div>
               <Title level={5}>Created At</Title>
               <Space>
@@ -254,6 +277,23 @@ const QALogs: React.FC = () => {
       </Modal>
     </div>
   );
+};
+
+const expandedRowRender = (record: QALog) => {
+  const columns: ColumnsType<RerankResult> = [
+    { title: 'Index', dataIndex: 'original_index', key: 'original_index', width: 80, render: (text) => <Tag>#{text}</Tag> },
+    {
+      title: 'Content',
+      dataIndex: 'content',
+      key: 'content',
+      width: '50%',
+      render: (text) => <Paragraph ellipsis={{ rows: 2, expandable: true }}>{text}</Paragraph>
+    },
+    { title: 'Similarity', dataIndex: 'similarity', key: 'similarity', width: 100, render: (score) => <Tag color="purple">{score?.toFixed(3)}</Tag> },
+    { title: 'Relevance', dataIndex: 'relevance', key: 'relevance', width: 100, render: (score) => <Tag color="volcano">{score?.toFixed(3)}</Tag> },
+  ];
+
+  return <Table columns={columns} dataSource={record.rerank_results} rowKey="id" pagination={false} />;
 };
 
 export default QALogs;

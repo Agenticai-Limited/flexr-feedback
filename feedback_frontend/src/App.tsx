@@ -8,8 +8,9 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import FeedbackManagement from './pages/FeedbackManagement';
 import QALogs from './pages/QALogs';
-import LowSimilarityAnalysis from './pages/LowSimilarityAnalysis';
+import LowRelevanceAnalysis from './pages/LowRelevanceAnalysis';
 import NoResultAnalysis from './pages/NoResultAnalysis';
+import UserManagement from './pages/UserManagement';
 
 // Ant Design theme configuration
 const theme = {
@@ -39,8 +40,9 @@ function App() {
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="feedback" element={<FeedbackManagement />} />
               <Route path="qa-logs" element={<QALogs />} />
-              <Route path="low-similarity" element={<LowSimilarityAnalysis />} />
+              <Route path="low-relevance" element={<LowRelevanceAnalysis />} />
               <Route path="no-result" element={<NoResultAnalysis />} />
+              <Route path="users" element={<UserManagement />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

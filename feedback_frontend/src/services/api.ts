@@ -3,10 +3,13 @@ import {
   Token,
   FeedbackSummary,
   QALog,
-  LowSimilarityQuery,
+  LowRelevanceResult,
+  LowRelevanceSummary,
   NoResultSummary,
   LoginSuccessResponse,
   LoginErrorResponse,
+  User,
+  UserCreate,
 } from "../types";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -133,16 +136,16 @@ export const qaLogsAPI = {
   },
 };
 
-// Low Similarity API
-export const lowSimilarityAPI = {
-  getQueries: async (
+// Low Relevance API
+export const lowRelevanceAPI = {
+  getResults: async (
     skip = 0,
     limit = 100,
     min_score?: number,
     max_score?: number
-  ): Promise<LowSimilarityQuery[]> => {
-    const response: AxiosResponse<LowSimilarityQuery[]> = await api.get(
-      "/api/v1/low-similarity",
+  ): Promise<LowRelevanceSummary[]> => {
+    const response: AxiosResponse<LowRelevanceSummary[]> = await api.get(
+      "/api/v1/low-relevance-results",
       {
         params: { skip, limit, min_score, max_score },
       }
@@ -159,6 +162,24 @@ export const noResultAPI = {
       {
         params: { limit },
       }
+    );
+    return response.data;
+  },
+};
+
+// User API
+export const userAPI = {
+  getUsers: async (skip = 0, limit = 100): Promise<User[]> => {
+    const response: AxiosResponse<User[]> = await api.get("/api/v1/users", {
+      params: { skip, limit },
+    });
+    return response.data;
+  },
+
+  createUser: async (userData: UserCreate): Promise<User> => {
+    const response: AxiosResponse<User> = await api.post(
+      "/api/v1/users",
+      userData
     );
     return response.data;
   },
