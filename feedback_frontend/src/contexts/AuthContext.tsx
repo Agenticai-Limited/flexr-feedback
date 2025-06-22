@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { AuthContextType, UserInfo } from '../types';
+import { AuthContextType, User } from '../types';
 import { authAPI } from '../services/api';
 import { message } from 'antd';
 
@@ -11,18 +11,15 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [userInfo, setUserInfo] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const checkUserStatus = async () => {
-      const userData = await authAPI.getCurrentUser();
-      if (userData?.success && userData.data.is_authenticated) {
+      const response = await authAPI.getCurrentUser();
+      if (response && response.success && response.data) {
         setIsAuthenticated(true);
-        setUserInfo({
-          username: userData.data.username,
-          isAuthenticated: userData.data.is_authenticated,
-        });
+        setUserInfo(response.data);
       } else {
         setIsAuthenticated(false);
         setUserInfo(null);
@@ -35,25 +32,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      const response = await authAPI.login(username, password);
-      console.log('Login response:', response);
+      const loginResponse = await authAPI.login(username, password);
 
-      if ('success' in response && response.success && response.data.access_token) {
+      if ('success' in loginResponse && loginResponse.success) {
         // After successful login, fetch user info
-        const userData = await authAPI.getCurrentUser();
-        if (userData?.success && userData.data.is_authenticated) {
+        const userResponse = await authAPI.getCurrentUser();
+        if (userResponse && userResponse.success && userResponse.data) {
           setIsAuthenticated(true);
-          setUserInfo({
-            username: userData.data.username,
-            isAuthenticated: userData.data.is_authenticated
-          });
+          setUserInfo(userResponse.data);
           message.success('Login successful');
           return true;
         }
       }
 
-      if ('error' in response && response.error.message) {
-        message.error(`Login failed: ${response.error.message}`);
+      if ('error' in loginResponse && loginResponse.error.message) {
+        message.error(`Login failed: ${loginResponse.error.message}`);
       } else {
         message.error('Login failed. Please check your credentials');
       }

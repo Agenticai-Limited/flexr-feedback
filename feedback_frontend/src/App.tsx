@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ConfigProvider } from 'antd';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import MainLayout from './components/Layout/MainLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -42,7 +43,11 @@ function App() {
               <Route path="qa-logs" element={<QALogs />} />
               <Route path="low-relevance" element={<LowRelevanceAnalysis />} />
               <Route path="no-result" element={<NoResultAnalysis />} />
-              <Route path="users" element={<UserManagement />} />
+              <Route path="users" element={
+                <AdminRoute>
+                  <UserManagement />
+                </AdminRoute>
+              } />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

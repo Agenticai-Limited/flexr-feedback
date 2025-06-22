@@ -20,7 +20,7 @@ const { Title } = Typography;
 
 const MainLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const { logout } = useAuth();
+  const { logout, userInfo } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -51,11 +51,11 @@ const MainLayout: React.FC = () => {
       icon: <StopOutlined />,
       label: 'No Result Analysis',
     },
-    {
+    ...(userInfo?.is_admin ? [{
       key: '/users',
       icon: <UserOutlined />,
       label: 'User Management',
-    },
+    }] : []),
   ];
 
   // User dropdown menu
@@ -119,7 +119,7 @@ const MainLayout: React.FC = () => {
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <Button type="text" className="flex items-center space-x-2 h-auto p-2">
                 <Avatar size="small" icon={<UserOutlined />} />
-                <span className="hidden sm:inline">Admin User</span>
+                <span className="hidden sm:inline">{userInfo?.full_name || userInfo?.username || 'User'}</span>
               </Button>
             </Dropdown>
           </Space>

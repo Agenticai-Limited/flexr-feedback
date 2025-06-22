@@ -62,12 +62,12 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
             logger.warning(f"User not found: {username}")
             return None
 
-        if not user.is_admin:
-            logger.warning(f"Login attempt by non-admin user: {username}")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only admin users can log in."
-            )
+        # if not user.is_admin:
+        #     logger.warning(f"Login attempt by non-admin user: {username}")
+        #     raise HTTPException(
+        #         status_code=status.HTTP_403_FORBIDDEN,
+        #         detail="Only admin users can log in."
+        #     )
 
         # Log the stored password hash for debugging
         logger.debug(f"Stored password hash: {user.password}")

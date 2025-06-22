@@ -23,11 +23,18 @@ def success_response(data):
 @router.post("/users", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
 async def create_user(
     user: schemas.UserCreate, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(get_current_user)
 ):
     """
     Create new user.
     """
+    db_user = crud.get_user(db, current_user.username)
+    if not db_user or not db_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to access this resource."
+        )
     return crud.create_user(db=db, user=user)
 
 @router.get("/users", response_model=List[schemas.User])
@@ -65,7 +72,9 @@ async def get_current_user_info(
             detail="User not found"
         )
     return success_response({
+        "full_name": user.full_name,
         "username": user.username,
+        "is_admin": user.is_admin,
         "is_authenticated": True
     })
 

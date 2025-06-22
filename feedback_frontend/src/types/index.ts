@@ -67,16 +67,10 @@ export interface UserCreate {
   is_admin?: boolean;
 }
 
-// User info type
-export interface UserInfo {
-  username: string;
-  isAuthenticated: boolean;
-}
-
 // Auth context types
 export interface AuthContextType {
   isAuthenticated: boolean;
-  userInfo: UserInfo | null;
+  userInfo: User | null;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
 }
