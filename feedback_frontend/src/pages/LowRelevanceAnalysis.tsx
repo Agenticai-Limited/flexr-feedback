@@ -50,13 +50,10 @@ const LowRelevanceAnalysis: React.FC = () => {
         scoreRange[1]
       );
 
-      setData(result);
-      // Simplification: backend should provide total count for accurate pagination
+      setData(result.data);
       setPagination(prev => ({
         ...prev,
-        total: result.length < pagination.pageSize ?
-          skip + result.length :
-          skip + result.length + pagination.pageSize
+        total: result.total,
       }));
     } catch (err) {
       setError('Failed to load low relevance data');
@@ -77,13 +74,6 @@ const LowRelevanceAnalysis: React.FC = () => {
       current: paginationConfig.current,
       pageSize: paginationConfig.pageSize,
     });
-  };
-
-  const handleScoreRangeChange = (value: number[]) => {
-    if (value && value.length === 2) {
-      setScoreRange([value[0], value[1]]);
-      setPagination(prev => ({ ...prev, current: 1 }));
-    }
   };
 
   const expandedRowRender = (record: LowRelevanceSummary) => {
@@ -183,18 +173,6 @@ const LowRelevanceAnalysis: React.FC = () => {
       <Card>
         <div className="flex justify-between items-center mb-4">
           <Title level={4}>Low Relevance Summaries</Title>
-          <Space>
-            <span className="text-sm">Filter by average score:</span>
-            <Slider
-              range
-              min={0}
-              max={1}
-              step={0.01}
-              defaultValue={[0, 1]}
-              style={{ width: 200 }}
-              onChangeComplete={handleScoreRangeChange}
-            />
-          </Space>
         </div>
         <Table
           columns={columns}

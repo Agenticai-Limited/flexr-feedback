@@ -19,12 +19,15 @@ def get_user(db: Session, username: str) -> Optional[User]:
         logger.error(f"Error in get_user: {str(e)}")
         raise
 
-def get_users(db: Session, skip: int = 0, limit: int = 100) -> List[User]:
+def get_users(db: Session, skip: int = 0, limit: int = 100) -> dict:
     """
-    Get all users.
+    Get all users with total count.
     """
     try:
-        return db.query(User).offset(skip).limit(limit).all()
+        query_base = db.query(User)
+        total = query_base.count()
+        results = query_base.order_by(User.id).offset(skip).limit(limit).all()
+        return {"total": total, "data": results}
     except Exception as e:
         logger.error(f"Error in get_users: {str(e)}")
         raise
@@ -109,77 +112,114 @@ def create_feedback(db: Session, feedback: schemas.FeedbackCreate) -> Feedback:
     db.refresh(db_feedback)
     return db_feedback
 
-def get_feedback_summary(db: Session, limit: int = 10) -> List[dict]:
+def get_feedback_list(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+    liked: Optional[bool] = None
+) -> dict:
     """
-    Get feedback summary grouped by query
+    Get a list of feedback entries with their corresponding queries,
+    with optional filtering and total count.
     """
     try:
-        return db.query(
+        query_base = db.query(
             QALogs.query,
-            func.count(Feedback.id).filter(Feedback.liked == True).label("satisfied_count"),
-            func.count(Feedback.id).filter(Feedback.liked == False).label("unsatisfied_count"),
-            func.count(Feedback.id).label("total_count")
+            QALogs.response,
+            Feedback.liked,
+            Feedback.reason,
+            Feedback.created_at
         ).join(
             Feedback,
             QALogs.task_id == Feedback.message_id
-        ).group_by(
-            QALogs.query
-        ).order_by(
-            desc("unsatisfied_count")
-        ).limit(limit).all()
+        )
+
+        if liked is not None:
+            query_base = query_base.filter(Feedback.liked == liked)
+        
+        total = query_base.count()
+
+        results = query_base.order_by(
+            desc(Feedback.created_at)
+        ).offset(skip).limit(limit).all()
+        
+        return {"total": total, "data": results}
+
     except Exception as e:
-        logger.error(f"Error in get_feedback_summary: {str(e)}")
+        logger.error(f"Error in get_feedback_list: {str(e)}")
+        raise
+
+def get_feedback_dashboard_summary(db: Session, recent_limit: int = 5) -> dict:
+    """
+    Get a summary of feedback data for the dashboard.
+    """
+    try:
+        total_feedback = db.query(Feedback).count()
+        positive_feedback_count = db.query(Feedback).filter(Feedback.liked == True).count()
+        negative_feedback_count = total_feedback - positive_feedback_count
+
+        recent_feedback = db.query(
+            Feedback.id,
+            QALogs.query,
+            Feedback.liked,
+            Feedback.created_at
+        ).join(
+            QALogs,
+            Feedback.message_id == QALogs.task_id
+        ).distinct(QALogs.query).order_by(QALogs.query, desc(Feedback.created_at)).limit(recent_limit).all()
+
+        return {
+            "total_feedback": total_feedback,
+            "positive_feedback_count": positive_feedback_count,
+            "negative_feedback_count": negative_feedback_count,
+            "recent_feedback": recent_feedback
+        }
+    except Exception as e:
+        logger.error(f"Error in get_feedback_dashboard_summary: {str(e)}")
         raise
 
 # QA Logs operations
-def create_qa_log(db: Session, qa_log: schemas.QALogCreate) -> QALogs:
-    """
-    Create a new QA log.
-    """
-    db_qa_log = QALogs(**qa_log.model_dump())
-    db.add(db_qa_log)
-    db.commit()
-    db.refresh(db_qa_log)
-    return db_qa_log
-
 def get_qa_logs(
     db: Session,
     skip: int = 0,
     limit: int = 100,
     search: Optional[str] = None
-) -> List[QALogs]:
+) -> dict:
     """
-    Get QA logs with optional search and rerank results.
+    Get QA logs with optional search and rerank results, with total count.
     """
     try:
-        query = db.query(QALogs).options(joinedload(QALogs.rerank_results))
+        query_base = db.query(QALogs)
         if search:
-            query = query.filter(QALogs.query.ilike(f"%{search}%"))
-        return query.order_by(desc(QALogs.created_at)).offset(skip).limit(limit).all()
+            query_base = query_base.filter(QALogs.query.ilike(f"%{search}%"))
+
+        total = query_base.count()
+
+        results = query_base.options(
+            joinedload(QALogs.rerank_results)
+        ).order_by(
+            desc(QALogs.created_at)
+        ).offset(skip).limit(limit).all()
+
+        return {"total": total, "data": results}
     except Exception as e:
         logger.error(f"Error in get_qa_logs: {str(e)}")
         raise
 
 # Low Relevance Results operations
-def create_low_relevance_result(db: Session, low_relevance_result: schemas.LowRelevanceResultCreate) -> LowRelevanceResults:
-    """
-    Create a new low relevance result log.
-    """
-    db_log = LowRelevanceResults(**low_relevance_result.model_dump())
-    db.add(db_log)
-    db.commit()
-    db.refresh(db_log)
-    return db_log
-
 def get_low_relevance_results(
     db: Session,
     skip: int = 0,
     limit: int = 100
-) -> List[dict]:
+) -> dict:
     """
-    Get low relevance results summary, grouped by query, with nested details.
+    Get low relevance results summary, grouped by query, with nested details and total count.
     """
     try:
+        # Subquery to count the number of distinct groups
+        subquery = db.query(LowRelevanceResults.query).group_by(LowRelevanceResults.query).subquery()
+        total = db.query(func.count(subquery.c.query)).scalar()
+
         # Construct a JSON object for each detailed row
         detail_object = func.json_build_object(
             "id", LowRelevanceResults.id,
@@ -190,7 +230,7 @@ def get_low_relevance_results(
             "created_at", LowRelevanceResults.created_at
         )
 
-        return db.query(
+        results = db.query(
             LowRelevanceResults.query,
             func.count(LowRelevanceResults.id).label("count"),
             func.avg(LowRelevanceResults.relevance_score).label("avg_relevance_score"),
@@ -200,6 +240,8 @@ def get_low_relevance_results(
         ).order_by(
             desc("count")
         ).offset(skip).limit(limit).all()
+
+        return {"total": total, "data": results}
     except Exception as e:
         logger.error(f"Error in get_low_relevance_results: {str(e)}")
         raise
@@ -216,16 +258,6 @@ def create_rerank_result(db: Session, rerank_result: schemas.RerankResultCreate)
     return db_rerank_result
 
 # No Result Logs operations
-def create_no_result_log(db: Session, no_result_log: schemas.NoResultLogCreate) -> NoResultLogs:
-    """
-    Create a new no result log.
-    """
-    db_log = NoResultLogs(**no_result_log.model_dump())
-    db.add(db_log)
-    db.commit()
-    db.refresh(db_log)
-    return db_log
-
 def get_no_result_summary(db: Session, limit: int = 10) -> List[dict]:
     """
     Get summary of no result queries

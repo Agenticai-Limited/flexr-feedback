@@ -37,7 +37,7 @@ async def create_user(
         )
     return crud.create_user(db=db, user=user)
 
-@router.get("/users", response_model=List[schemas.User])
+@router.get("/users", response_model=schemas.UserResponse)
 async def get_users(
     skip: int = 0,
     limit: int = 100,
@@ -117,24 +117,41 @@ async def login(
     return success_response({"access_token": access_token, "token_type": "bearer"})
 
 # Feedback endpoints
-@router.get("/feedback/summary", response_model=List[schemas.FeedbackSummary])
-async def get_feedback_summary(
-    limit: int = 10,
+@router.get("/feedback", response_model=schemas.FeedbackResponse)
+async def get_feedback_list(
+    skip: int = 0,
+    limit: int = 100,
+    liked: Optional[bool] = None,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(get_current_user)
 ):
     """
-    Get feedback summary endpoint
+    Get a list of feedback entries with their corresponding queries.
     """
+    if skip < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Skip value cannot be negative"
+        )
     if limit < 1 or limit > 100:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Limit must be between 1 and 100"
         )
-    return crud.get_feedback_summary(db=db, limit=limit)
+    return crud.get_feedback_list(db=db, skip=skip, limit=limit, liked=liked)
+
+@router.get("/feedback/dashboard-summary", response_model=schemas.FeedbackDashboardSummary)
+async def get_feedback_dashboard_summary(
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(get_current_user)
+):
+    """
+    Get a summary of feedback data for the dashboard.
+    """
+    return crud.get_feedback_dashboard_summary(db=db)
 
 # QA Logs endpoints
-@router.get("/qa-logs", response_model=List[schemas.QALog])
+@router.get("/qa-logs", response_model=schemas.QALogResponse)
 async def get_qa_logs(
     skip: int = 0,
     limit: int = 100,
@@ -157,7 +174,7 @@ async def get_qa_logs(
         )
     return crud.get_qa_logs(db=db, skip=skip, limit=limit, search=search)
 
-@router.get("/low-relevance-results", response_model=List[schemas.LowRelevanceResultSummary])
+@router.get("/low-relevance-results", response_model=schemas.LowRelevanceResultResponse)
 async def get_low_relevance_results(
     skip: int = 0,
     limit: int = 100,
@@ -198,14 +215,3 @@ async def get_no_result_summary(
             detail="Limit must be between 1 and 100"
         )
     return crud.get_no_result_summary(db=db, limit=limit)
-
-# Rerank Results endpoints
-@router.post("/rerank-results", response_model=schemas.RerankResult)
-async def create_rerank_result(
-    rerank_result: schemas.RerankResultCreate,
-    db: Session = Depends(get_db)
-):
-    """
-    Create a new rerank result.
-    """
-    return crud.create_rerank_result(db=db, rerank_result=rerank_result) 

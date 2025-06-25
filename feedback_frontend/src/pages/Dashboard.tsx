@@ -1,127 +1,84 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Statistic, Typography, Alert, Spin } from 'antd';
-import { 
-  MessageOutlined, 
-  FileTextOutlined, 
-  ExclamationCircleOutlined, 
-  StopOutlined 
-} from '@ant-design/icons';
-import ReactECharts from 'echarts-for-react';
-import { FeedbackSummary, NoResultSummary } from '../types';
+import { Card, Col, Row, Spin, Statistic, Table, Tag, Typography, Alert } from 'antd';
+import { LikeOutlined, DislikeOutlined, MessageOutlined, ArrowUpOutlined, ArrowDownOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import { FeedbackDashboardSummary, RecentFeedback, NoResultSummary } from '../types';
 import { feedbackAPI, noResultAPI } from '../services/api';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 const Dashboard: React.FC = () => {
-  const [feedbackData, setFeedbackData] = useState<FeedbackSummary[]>([]);
+  const [summary, setSummary] = useState<FeedbackDashboardSummary | null>(null);
   const [noResultData, setNoResultData] = useState<NoResultSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadDashboardData();
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [feedbackSummaryData, noResultSummaryData] = await Promise.all([
+          feedbackAPI.getDashboardSummary(),
+          noResultAPI.getSummary(10) // Fetch top 10 no-result queries
+        ]);
+        setSummary(feedbackSummaryData);
+        setNoResultData(noResultSummaryData);
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
+        setError('Could not load dashboard data. The backend service may be unavailable.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      const [feedback, noResult] = await Promise.all([
-        feedbackAPI.getSummary(10),
-        noResultAPI.getSummary(10)
-      ]);
-      
-      setFeedbackData(feedback);
-      setNoResultData(noResult);
-    } catch (err) {
-      setError('Failed to load dashboard data');
-      console.error('Dashboard data loading error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const totalNoResultQueries = noResultData.reduce((sum, item) => sum + item.count, 0);
 
-  // Calculate statistics from feedback data
-  const totalFeedback = feedbackData.reduce((sum, item) => sum + item.total_count, 0);
-  const totalSatisfied = feedbackData.reduce((sum, item) => sum + item.satisfied_count, 0);
-  const totalUnsatisfied = feedbackData.reduce((sum, item) => sum + item.unsatisfied_count, 0);
-  const satisfactionRate = totalFeedback > 0 ? ((totalSatisfied / totalFeedback) * 100).toFixed(1) : '0';
-
-  // Feedback chart configuration
-  const feedbackChartOption = {
-    title: {
-      text: 'Top 10 Feedback Issues',
-      textStyle: { fontSize: 16, fontWeight: 'bold' }
+  const recentFeedbackColumns: any[] = [
+    {
+      title: 'Query',
+      dataIndex: 'query',
+      key: 'query',
+      render: (text: string) => <Text ellipsis>{text}</Text>,
     },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow' }
-    },
-    legend: {
-      data: ['Satisfied', 'Unsatisfied']
-    },
-    xAxis: {
-      type: 'category',
-      data: feedbackData.slice(0, 5).map(item => 
-        item.query.length > 30 ? item.query.substring(0, 30) + '...' : item.query
+    {
+      title: 'Feedback',
+      dataIndex: 'liked',
+      key: 'liked',
+      width: 120,
+      render: (liked: boolean) => (
+        <Tag icon={liked ? <LikeOutlined /> : <DislikeOutlined />} color={liked ? 'success' : 'error'}>
+          {liked ? 'Helpful' : 'Not Helpful'}
+        </Tag>
       ),
-      axisLabel: {
-        rotate: 45,
-        fontSize: 11
-      }
     },
-    yAxis: {
-      type: 'value'
+    {
+      title: 'Time',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 180,
+      render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm'),
     },
-    series: [
-      {
-        name: 'Satisfied',
-        type: 'bar',
-        stack: 'total',
-        data: feedbackData.slice(0, 5).map(item => item.satisfied_count),
-        itemStyle: { color: '#52c41a' }
-      },
-      {
-        name: 'Unsatisfied',
-        type: 'bar',
-        stack: 'total',
-        data: feedbackData.slice(0, 5).map(item => item.unsatisfied_count),
-        itemStyle: { color: '#ff4d4f' }
-      }
-    ]
-  };
+  ];
 
-  // No result chart configuration
-  const noResultChartOption = {
-    title: {
-      text: 'Top No-Result Queries',
-      textStyle: { fontSize: 16, fontWeight: 'bold' }
+  const noResultColumns: any[] = [
+    {
+      title: 'Query',
+      dataIndex: 'query',
+      key: 'query',
+      render: (text: string) => <Text ellipsis>{text}</Text>,
     },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow' }
+    {
+      title: 'Count',
+      dataIndex: 'count',
+      key: 'count',
+      width: 80,
+      align: 'right',
+      render: (count: number) => <Tag color="orange">{count}</Tag>,
     },
-    xAxis: {
-      type: 'category',
-      data: noResultData.slice(0, 5).map(item => 
-        item.query.length > 30 ? item.query.substring(0, 30) + '...' : item.query
-      ),
-      axisLabel: {
-        rotate: 45,
-        fontSize: 11
-      }
-    },
-    yAxis: {
-      type: 'value'
-    },
-    series: [
-      {
-        name: 'Count',
-        type: 'bar',
-        data: noResultData.slice(0, 5).map(item => item.count),
-        itemStyle: { color: '#faad14' }
-      }
-    ]
-  };
+  ];
 
   if (loading) {
     return (
@@ -131,86 +88,82 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  return (
-    <div className="p-6">
-      <div className="mb-6">
-        <Title level={2} className="!mb-2">Dashboard</Title>
-        <p className="text-gray-600">System overview and key metrics</p>
-      </div>
+  if (error) {
+    return <div className="p-6"><Alert message="Error" description={error} type="error" showIcon /></div>;
+  }
 
-      {error && (
-        <Alert
-          message={error}
-          type="error"
-          showIcon
-          closable
-          className="mb-6"
-          onClose={() => setError(null)}
-        />
+  return (
+    <div className="p-6 bg-gray-50 min-h-full">
+      <Title level={2} className="mb-6">Dashboard</Title>
+
+      {summary && (
+        <div className="site-statistic-demo-card mb-6">
+          <Row gutter={16}>
+            <Col span={6}>
+              <Card>
+                <Statistic
+                  title="Total Feedback"
+                  value={summary.total_feedback}
+                  prefix={<MessageOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card>
+                <Statistic
+                  title="Positive Feedback"
+                  value={summary.positive_feedback_count}
+                  valueStyle={{ color: '#3f8600' }}
+                  prefix={<ArrowUpOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card>
+                <Statistic
+                  title="Negative Feedback"
+                  value={summary.negative_feedback_count}
+                  valueStyle={{ color: '#cf1322' }}
+                  prefix={<ArrowDownOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card>
+                <Statistic
+                  title="No-Result Queries"
+                  value={totalNoResultQueries}
+                  valueStyle={{ color: '#d46b08' }}
+                  prefix={<QuestionCircleOutlined />}
+                />
+              </Card>
+            </Col>
+          </Row>
+        </div>
       )}
 
-      {/* Statistics Cards */}
-      <Row gutter={[16, 16]} className="mb-6">
-        <Col xs={24} sm={12} lg={6}>
+      <Row gutter={16}>
+        <Col span={12}>
           <Card>
-            <Statistic
-              title="Total Feedback"
-              value={totalFeedback}
-              prefix={<MessageOutlined />}
-              valueStyle={{ color: '#1890ff' }}
+            <Title level={4}>Recent Feedback Activity</Title>
+            <Table
+              columns={recentFeedbackColumns}
+              dataSource={summary?.recent_feedback || []}
+              rowKey="id"
+              pagination={{ pageSize: 5 }}
+              size="small"
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
+        <Col span={12}>
           <Card>
-            <Statistic
-              title="Satisfaction Rate"
-              value={satisfactionRate}
-              suffix="%"
-              prefix={<FileTextOutlined />}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Unsatisfied Count"
-              value={totalUnsatisfied}
-              prefix={<ExclamationCircleOutlined />}
-              valueStyle={{ color: '#ff4d4f' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="No Result Queries"
-              value={noResultData.reduce((sum, item) => sum + item.count, 0)}
-              prefix={<StopOutlined />}
-              valueStyle={{ color: '#faad14' }}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Charts */}
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={12}>
-          <Card>
-            <ReactECharts 
-              option={feedbackChartOption} 
-              style={{ height: '400px' }}
-              opts={{ renderer: 'canvas' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card>
-            <ReactECharts 
-              option={noResultChartOption} 
-              style={{ height: '400px' }}
-              opts={{ renderer: 'canvas' }}
+            <Title level={4}>Top No-Result Queries</Title>
+            <Table
+              columns={noResultColumns}
+              dataSource={noResultData}
+              rowKey="query"
+              pagination={{ pageSize: 5 }}
+              size="small"
             />
           </Card>
         </Col>

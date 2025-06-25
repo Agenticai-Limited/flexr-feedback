@@ -1,15 +1,20 @@
 import axios, { AxiosInstance, AxiosResponse } from "axios";
 import {
-  Token,
-  FeedbackSummary,
-  QALog,
-  LowRelevanceResult,
-  LowRelevanceSummary,
+  Feedback,
+  FeedbackResponse,
   NoResultSummary,
   LoginSuccessResponse,
   LoginErrorResponse,
   User,
   UserCreate,
+  PaginatedUsersResponse,
+  PaginatedLowRelevanceResponse,
+  PaginatedQALogsResponse,
+  UserLogin,
+  UserWithToken,
+  FeedbackCreate,
+  PaginatedFeedbackResponse,
+  FeedbackDashboardSummary,
 } from "../types";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -115,23 +120,51 @@ export const authAPI = {
 
 // Feedback API
 export const feedbackAPI = {
-  getSummary: async (limit = 10): Promise<FeedbackSummary[]> => {
-    const response: AxiosResponse<FeedbackSummary[]> = await api.get(
-      "/api/v1/feedback/summary",
-      {
-        params: { limit },
-      }
+  getFeedbacks: async (
+    skip = 0,
+    limit = 10,
+    liked?: boolean
+  ): Promise<FeedbackResponse> => {
+    const params: { skip: number; limit: number; liked?: boolean } = {
+      skip,
+      limit,
+    };
+    if (liked !== undefined) {
+      params.liked = liked;
+    }
+    const response: AxiosResponse<FeedbackResponse> = await api.get(
+      "/api/v1/feedback",
+      { params }
     );
     return response.data;
   },
+  getFeedback: (
+    skip: number,
+    limit: number,
+    query: string
+  ): Promise<PaginatedFeedbackResponse> =>
+    api
+      .get("/api/v1/feedback", { params: { skip, limit, query } })
+      .then((res) => res.data),
+  createFeedback: (data: FeedbackCreate): Promise<Feedback> =>
+    api.post("/api/v1/feedback", data).then((res) => res.data),
+  getDashboardSummary: (): Promise<FeedbackDashboardSummary> =>
+    api.get("/api/v1/feedback/dashboard-summary").then((res) => res.data),
 };
 
 // QA Logs API
 export const qaLogsAPI = {
-  getLogs: async (skip = 0, limit = 100, search?: string): Promise<QALog[]> => {
-    const response: AxiosResponse<QALog[]> = await api.get("/api/v1/qa-logs", {
-      params: { skip, limit, search },
-    });
+  getLogs: async (
+    skip = 0,
+    limit = 100,
+    search?: string
+  ): Promise<PaginatedQALogsResponse> => {
+    const response: AxiosResponse<PaginatedQALogsResponse> = await api.get(
+      "/api/v1/qa-logs",
+      {
+        params: { skip, limit, search },
+      }
+    );
     return response.data;
   },
 };
@@ -143,13 +176,11 @@ export const lowRelevanceAPI = {
     limit = 100,
     min_score?: number,
     max_score?: number
-  ): Promise<LowRelevanceSummary[]> => {
-    const response: AxiosResponse<LowRelevanceSummary[]> = await api.get(
-      "/api/v1/low-relevance-results",
-      {
+  ): Promise<PaginatedLowRelevanceResponse> => {
+    const response: AxiosResponse<PaginatedLowRelevanceResponse> =
+      await api.get("/api/v1/low-relevance-results", {
         params: { skip, limit, min_score, max_score },
-      }
-    );
+      });
     return response.data;
   },
 };
@@ -169,10 +200,13 @@ export const noResultAPI = {
 
 // User API
 export const userAPI = {
-  getUsers: async (skip = 0, limit = 100): Promise<User[]> => {
-    const response: AxiosResponse<User[]> = await api.get("/api/v1/users", {
-      params: { skip, limit },
-    });
+  getUsers: async (skip = 0, limit = 100): Promise<PaginatedUsersResponse> => {
+    const response: AxiosResponse<PaginatedUsersResponse> = await api.get(
+      "/api/v1/users",
+      {
+        params: { skip, limit },
+      }
+    );
     return response.data;
   },
 
@@ -181,6 +215,19 @@ export const userAPI = {
       "/api/v1/users",
       userData
     );
+    return response.data;
+  },
+
+  login: async (data: UserLogin): Promise<UserWithToken> => {
+    const response: AxiosResponse<UserWithToken> = await api.post(
+      "/api/v1/users/login",
+      data
+    );
+    return response.data;
+  },
+
+  getMe: async (): Promise<User> => {
+    const response: AxiosResponse<User> = await api.get("/api/v1/users/me");
     return response.data;
   },
 };

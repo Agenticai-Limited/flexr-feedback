@@ -39,9 +39,8 @@ const UserManagement: React.FC = () => {
             setLoading(true);
             const skip = (page - 1) * pageSize;
             const result = await userAPI.getUsers(skip, pageSize);
-            setUsers(result);
-            // This is a simplification. The API should ideally return a total count.
-            setPagination(prev => ({ ...prev, total: result.length < pageSize ? skip + result.length : skip + result.length + 10 }));
+            setUsers(result.data);
+            setPagination(prev => ({ ...prev, total: result.total, current: page }));
         } catch (err) {
             setError('Failed to load users.');
             console.error('Failed to fetch users:', err);
@@ -69,7 +68,12 @@ const UserManagement: React.FC = () => {
             message.success('User created successfully');
             setIsModalVisible(false);
             form.resetFields();
-            fetchUsers(1); // Refresh user list and go to first page
+            // Go back to first page to see the new user, and refetch if already on page 1
+            if (pagination.current === 1) {
+                fetchUsers(1, pagination.pageSize);
+            } else {
+                setPagination(prev => ({ ...prev, current: 1 }));
+            }
         } catch (err: any) {
             if (err.response && err.response.data && err.response.data.detail) {
                 const errorMsg = err.response.data.detail;

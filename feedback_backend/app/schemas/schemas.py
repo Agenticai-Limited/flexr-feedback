@@ -19,6 +19,10 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
+class UserResponse(BaseModel):
+    total: int
+    data: List[User]
+
 # Token schemas
 class Token(BaseModel):
     access_token: str
@@ -79,6 +83,10 @@ class QALog(QALogBase):
     class Config:
         from_attributes = True
 
+class QALogResponse(BaseModel):
+    total: int
+    data: List[QALog]
+
 # Low Relevance Results schemas
 class LowRelevanceResultBase(BaseModel):
     query: str
@@ -112,11 +120,31 @@ class NoResultLog(NoResultLogBase):
         from_attributes = True
 
 # Summary schemas
-class FeedbackSummary(BaseModel):
+class FeedbackDetail(BaseModel):
     query: str
-    satisfied_count: int
-    unsatisfied_count: int
-    total_count: int
+    response: str
+    liked: bool
+    reason: Optional[str] = None
+    created_at: datetime
+
+class FeedbackResponse(BaseModel):
+    total: int
+    data: List[FeedbackDetail]
+
+class RecentFeedbackItem(BaseModel):
+    id: int
+    query: str
+    liked: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class FeedbackDashboardSummary(BaseModel):
+    total_feedback: int
+    positive_feedback_count: int
+    negative_feedback_count: int
+    recent_feedback: List[RecentFeedbackItem]
 
 class NoResultSummary(BaseModel):
     query: str
@@ -126,4 +154,8 @@ class LowRelevanceResultSummary(BaseModel):
     query: str
     count: int
     avg_relevance_score: float
-    results: List[LowRelevanceResult] 
+    results: List[LowRelevanceResult]
+
+class LowRelevanceResultResponse(BaseModel):
+    total: int
+    data: List[LowRelevanceResultSummary] 

@@ -4,11 +4,23 @@ export interface Token {
   token_type: string;
 }
 
-export interface FeedbackSummary {
+export interface Feedback {
   query: string;
-  satisfied_count: number;
-  unsatisfied_count: number;
-  total_count: number;
+  liked: boolean;
+  reason: string | null;
+  response: string | null;
+  created_at: string;
+}
+
+export interface FeedbackCreate {
+  query: string;
+  liked: boolean;
+  reason?: string | null;
+}
+
+export interface FeedbackResponse {
+  total: number;
+  data: Feedback[];
 }
 
 export interface QALog {
@@ -18,6 +30,11 @@ export interface QALog {
   id: number;
   created_at: string;
   rerank_results: RerankResult[];
+}
+
+export interface PaginatedQALogsResponse {
+  total: number;
+  data: QALog[];
 }
 
 export interface RerankResult {
@@ -63,8 +80,19 @@ export interface User {
 export interface UserCreate {
   username: string;
   password: string;
-  full_name?: string;
+  full_name?: string | null;
   is_admin?: boolean;
+}
+
+export interface UserLogin {
+  username: string;
+  password: string;
+}
+
+export interface UserWithToken {
+  access_token: string;
+  token_type: string;
+  user: User;
 }
 
 // Auth context types
@@ -94,4 +122,37 @@ export interface LoginErrorResponse {
     code: number;
     message: string;
   };
+}
+
+export interface PaginatedUsersResponse {
+  data: User[];
+  total: number;
+}
+
+export interface AuthState {
+  token: string | null;
+}
+
+export interface PaginatedLowRelevanceResponse {
+  data: LowRelevanceSummary[];
+  total: number;
+}
+
+export interface PaginatedFeedbackResponse {
+  data: Feedback[];
+  total: number;
+}
+
+export interface RecentFeedback {
+  id: number;
+  query: string;
+  liked: boolean;
+  created_at: string;
+}
+
+export interface FeedbackDashboardSummary {
+  total_feedback: number;
+  positive_feedback_count: number;
+  negative_feedback_count: number;
+  recent_feedback: RecentFeedback[];
 }
