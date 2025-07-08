@@ -43,7 +43,6 @@ class RerankResults(Base):
     task_id = Column(String, ForeignKey("qa_logs.task_id"), nullable=False, index=True)
     original_index = Column(Integer, nullable=False)
     content = Column(Text)
-    similarity = Column(Float, nullable=False)
     relevance = Column(Float, nullable=False)
     metadata_ = Column("metadata", JSONB)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

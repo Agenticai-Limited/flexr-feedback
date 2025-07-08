@@ -52,7 +52,6 @@ class RerankResultBase(BaseModel):
     task_id: str
     original_index: int
     content: Optional[str] = None
-    similarity: float
     relevance: float
     metadata_: Optional[Any] = None
 

@@ -251,7 +251,10 @@ def create_rerank_result(db: Session, rerank_result: schemas.RerankResultCreate)
     """
     Create a new rerank result.
     """
-    db_rerank_result = RerankResults(**rerank_result.model_dump())
+    data = rerank_result.model_dump()
+    if 'similarity' in data:
+        data.pop('similarity')
+    db_rerank_result = RerankResults(**data)
     db.add(db_rerank_result)
     db.commit()
     db.refresh(db_rerank_result)

@@ -239,7 +239,6 @@ const expandedRowRender = (record: QALog) => {
       key: 'content',
       render: (text) => <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: 'more' }}>{text || 'N/A'}</Paragraph>
     },
-    { title: 'Similarity', dataIndex: 'similarity', key: 'similarity', width: 100, render: (score) => <Tag color="purple">{score?.toFixed(3)}</Tag> },
     { title: 'Relevance', dataIndex: 'relevance', key: 'relevance', width: 100, render: (score) => <Tag color="volcano">{score?.toFixed(3)}</Tag> },
   ];
 

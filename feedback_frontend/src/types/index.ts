@@ -41,7 +41,6 @@ export interface RerankResult {
   task_id: string;
   original_index: number;
   content: string | null;
-  similarity: number;
   relevance: number;
   metadata: object | null;
   id: number;
