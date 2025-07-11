@@ -89,15 +89,16 @@ const LowRelevanceAnalysis: React.FC = () => {
 
   const expandedRowRender = (record: LowRelevanceSummary) => {
     const columns: ColumnsType<LowRelevanceResult> = [
+      { title: 'Section Name', dataIndex: 'section_name', key: 'section_name', width: '20%' },
+      { title: 'Page Title', dataIndex: 'title', key: 'title', width: '20%' },
       {
         title: 'Content',
         dataIndex: 'content',
         key: 'content',
-        width: '50%',
+        width: '40%',
         render: (text) => <Paragraph ellipsis={{ rows: 2 }}>{text || 'N/A'}</Paragraph>
       },
       { title: 'Relevance', dataIndex: 'relevance_score', key: 'relevance_score', width: 120, sorter: (a, b) => a.relevance_score - b.relevance_score, render: (score) => <Tag color={score < 0.3 ? 'red' : 'orange'}>{score.toFixed(3)}</Tag> },
-      { title: 'Index', dataIndex: 'original_index', key: 'original_index', width: 100, sorter: (a, b) => a.original_index - b.original_index, render: (text) => <Tag>#{text}</Tag> },
       { title: 'Created At', dataIndex: 'created_at', key: 'created_at', width: 150, render: (date) => dayjs(date).format('YYYY-MM-DD HH:mm') },
       {
         title: 'Actions',
@@ -222,8 +223,11 @@ const LowRelevanceAnalysis: React.FC = () => {
         {selectedRecord && (
           <div>
             <p><strong>Query:</strong> {selectedRecord.query}</p>
+            <p><strong>Index:</strong> {selectedRecord.original_index}</p>
+            <p><strong>Page ID:</strong> {selectedRecord.page_id || 'N/A'}</p>
+            <p><strong>Section Name:</strong> {selectedRecord.section_name || 'N/A'}</p>
+            <p><strong>Page Title:</strong> {selectedRecord.title || 'N/A'}</p>
             <p><strong>Relevance Score:</strong> {selectedRecord.relevance_score.toFixed(4)}</p>
-            <p><strong>Original Index:</strong> {selectedRecord.original_index}</p>
             <p><strong>Created At:</strong> {dayjs(selectedRecord.created_at).format('YYYY-MM-DD HH:mm:ss')}</p>
             <p><strong>Content:</strong></p>
             <div className="prose prose-sm max-w-none p-2 border rounded bg-gray-50" style={{ wordBreak: 'break-word' }}>

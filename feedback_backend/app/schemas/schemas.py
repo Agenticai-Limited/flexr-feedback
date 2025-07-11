@@ -92,6 +92,7 @@ class LowRelevanceResultBase(BaseModel):
     original_index: int
     relevance_score: float
     content: Optional[str] = None
+    page_id: Optional[str] = None
 
 class LowRelevanceResultCreate(LowRelevanceResultBase):
     pass
@@ -99,6 +100,8 @@ class LowRelevanceResultCreate(LowRelevanceResultBase):
 class LowRelevanceResult(LowRelevanceResultBase):
     id: int
     created_at: datetime
+    section_name: Optional[str] = "N/A"
+    title: Optional[str] = "Info unavailable"
 
     class Config:
         from_attributes = True

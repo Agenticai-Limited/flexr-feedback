@@ -77,6 +77,7 @@ class LowRelevanceResults(Base):
     original_index = Column(Integer, nullable=False)
     relevance_score = Column(Float, nullable=False, index=True)
     content = Column(Text)
+    page_id = Column(Text, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class NoResultLogs(Base):

@@ -54,6 +54,9 @@ export interface LowRelevanceResult {
   content: string | null;
   id: number;
   created_at: string;
+  page_id: string | null;
+  section_name: string | null;
+  title: string | null;
 }
 
 export interface LowRelevanceSummary {

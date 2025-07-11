@@ -220,8 +220,16 @@ def get_low_relevance_results(
     Results are sorted by the most recent occurrence in each group.
     """
     try:
-        # Base query for filtering
-        query_base = db.query(LowRelevanceResults)
+        # Base query for filtering, joining with metadata
+        query_base = db.query(
+            LowRelevanceResults,
+            OneNotePageMetadata.section_name,
+            OneNotePageMetadata.title
+        ).outerjoin(
+            OneNotePageMetadata, 
+            LowRelevanceResults.page_id == OneNotePageMetadata.page_id
+        )
+
         if start_date:
             query_base = query_base.filter(LowRelevanceResults.created_at >= start_date)
         if end_date:
@@ -253,9 +261,13 @@ def get_low_relevance_results(
 
         # Map details to their respective query group
         details_map = {}
-        for detail in details_query:
+        for detail, section_name, title in details_query:
             if detail.query not in details_map:
                 details_map[detail.query] = []
+            
+            # Manually add joined fields to the ORM instance
+            detail.section_name = section_name
+            detail.title = title
             details_map[detail.query].append(detail)
 
         # Combine groups with their details
