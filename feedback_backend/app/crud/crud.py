@@ -300,15 +300,28 @@ def create_rerank_result(db: Session, rerank_result: schemas.RerankResultCreate)
     return db_rerank_result
 
 # No Result Logs operations
-def get_no_result_summary(db: Session, limit: int = 10) -> List[dict]:
+def get_no_result_summary(
+    db: Session, 
+    limit: int = 10,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None
+) -> List[dict]:
     """
     Get summary of no result queries
     """
     try:
-        return db.query(
+        query_base = db.query(
             NoResultLogs.query,
-            func.count(NoResultLogs.id).label("count")
-        ).group_by(
+            func.count(NoResultLogs.id).label("count"),
+            func.max(NoResultLogs.created_at).label("last_occurred_at")
+        )
+
+        if start_date:
+            query_base = query_base.filter(NoResultLogs.created_at >= start_date)
+        if end_date:
+            query_base = query_base.filter(NoResultLogs.created_at <= end_date)
+
+        return query_base.group_by(
             NoResultLogs.query
         ).order_by(
             desc("count")

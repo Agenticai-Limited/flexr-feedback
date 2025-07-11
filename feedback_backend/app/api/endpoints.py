@@ -207,18 +207,20 @@ async def get_low_relevance_results(
 @router.get("/no-result/summary", response_model=List[schemas.NoResultSummary])
 async def get_no_result_summary(
     limit: int = 10,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(get_current_user)
 ):
     """
     Get no result queries summary endpoint
     """
-    if limit < 1 or limit > 100:
+    if limit < 1 or limit > 1000: # Increased limit for exports
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Limit must be between 1 and 100"
+            detail="Limit must be between 1 and 1000"
         )
-    return crud.get_no_result_summary(db=db, limit=limit)
+    return crud.get_no_result_summary(db=db, limit=limit, start_date=start_date, end_date=end_date)
 
 # OneNote Sync Log endpoints
 @router.get("/onenote-sync/stats", response_model=schemas.OneNoteSyncStatsResponse)

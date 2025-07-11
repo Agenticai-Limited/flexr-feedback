@@ -151,6 +151,10 @@ class FeedbackDashboardSummary(BaseModel):
 class NoResultSummary(BaseModel):
     query: str
     count: int
+    last_occurred_at: datetime
+
+    class Config:
+        from_attributes = True
 
 class LowRelevanceResultSummary(BaseModel):
     query: str

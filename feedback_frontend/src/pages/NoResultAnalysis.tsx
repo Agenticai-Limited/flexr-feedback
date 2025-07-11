@@ -1,36 +1,71 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Table, 
-  Card, 
-  Typography, 
-  Alert, 
+import {
+  Table,
+  Card,
+  Typography,
+  Alert,
   Spin,
+  Button,
+  DatePicker,
+  Space,
   Row,
   Col,
   Statistic
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { StopOutlined } from '@ant-design/icons';
+import { DownloadOutlined, FilePdfOutlined, StopOutlined, QuestionCircleOutlined, CalculatorOutlined, RiseOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
+import Papa from 'papaparse';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import ReactECharts from 'echarts-for-react';
 import { NoResultSummary } from '../types';
 import { noResultAPI } from '../services/api';
 
 const { Title } = Typography;
+const { RangePicker } = DatePicker;
+
+type RangeValue = [Dayjs | null, Dayjs | null] | null;
 
 const NoResultAnalysis: React.FC = () => {
   const [data, setData] = useState<NoResultSummary[]>([]);
+  const [stats, setStats] = useState({
+      totalQueries: 0,
+      uniqueQueries: 0,
+      avgOccurrence: 0,
+      topQueryCount: 0,
+  });
   const [loading, setLoading] = useState(true);
+  const [exportingCsv, setExportingCsv] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<RangeValue>(null);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [dateRange]);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const result = await noResultAPI.getSummary(50);
+      const startDate = dateRange?.[0]?.startOf('day').toISOString();
+      const endDate = dateRange?.[1]?.endOf('day').toISOString();
+      const result = await noResultAPI.getSummary(1000, startDate, endDate); 
+      
       setData(result);
+
+      // Calculate stats
+      const total = result.reduce((sum, item) => sum + item.count, 0);
+      const unique = result.length;
+      const topCount = result.length > 0 ? result[0].count : 0;
+      setStats({
+          totalQueries: total,
+          uniqueQueries: unique,
+          avgOccurrence: unique > 0 ? parseFloat((total / unique).toFixed(1)) : 0,
+          topQueryCount: topCount,
+      });
+
     } catch (err) {
       setError('Failed to load no-result data');
       console.error('No-result data loading error:', err);
@@ -39,25 +74,72 @@ const NoResultAnalysis: React.FC = () => {
     }
   };
 
-  // Calculate statistics
-  const totalQueries = data.reduce((sum, item) => sum + item.count, 0);
-  const uniqueQueries = data.length;
-  const avgOccurrence = uniqueQueries > 0 ? (totalQueries / uniqueQueries).toFixed(1) : '0';
-  const topQuery = data.length > 0 ? data[0] : null;
+  const handleDateChange = (dates: RangeValue) => {
+    setDateRange(dates);
+  };
+
+  const handleExportCsv = async () => {
+    setExportingCsv(true);
+    try {
+      const exportData = data.map(item => ({
+        Query: item.query,
+        Count: item.count,
+        'Last Occurred At': dayjs(item.last_occurred_at).format('YYYY-MM-DD HH:mm:ss'),
+      }));
+
+      const csv = Papa.unparse(exportData);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `no-result-export-${dayjs().format('YYYYMMDD')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+    } catch (err) {
+      setError('Failed to export CSV data.');
+    } finally {
+      setExportingCsv(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    setExportingPdf(true);
+    try {
+      const doc = new jsPDF();
+      const title = `No Result Analysis: ${dateRange?.[0]?.format('YYYY-MM-DD') || 'Start'} to ${dateRange?.[1]?.endOf('day').format('YYYY-MM-DD') || 'End'}`;
+      doc.text(title, 14, 20);
+
+      autoTable(doc, {
+        startY: 25,
+        head: [['Query', 'Count', 'Last Occurred At']],
+        body: data.map(item => [
+          item.query,
+          item.count,
+          dayjs(item.last_occurred_at).format('YYYY-MM-DD HH:mm:ss'),
+        ]),
+        theme: 'striped',
+      });
+
+      doc.save(`no-result-report-${dayjs().format('YYYYMMDD')}.pdf`);
+
+    } catch (err) {
+      setError('Failed to export PDF.');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
 
   // Chart configuration for top no-result queries
-  const chartOption = {
-    title: {
-      text: 'Top 15 No-Result Queries',
-      textStyle: { fontSize: 16, fontWeight: 'bold' }
-    },
+  const barChartOption = {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' }
     },
     xAxis: {
       type: 'category',
-      data: data.slice(0, 15).map((item, index) => 
+      data: data.slice(0, 15).map(item => 
         item.query.length > 25 ? item.query.substring(0, 25) + '...' : item.query
       ),
       axisLabel: {
@@ -87,8 +169,8 @@ const NoResultAnalysis: React.FC = () => {
     ]
   };
 
-  // Word cloud-like chart configuration
-  const wordCloudOption = {
+  // Pie chart configuration
+  const pieChartOption = {
     title: {
       text: 'Query Frequency Distribution',
       textStyle: { fontSize: 16, fontWeight: 'bold' }
@@ -120,7 +202,7 @@ const NoResultAnalysis: React.FC = () => {
           value: item.count,
           name: item.query.length > 30 ? item.query.substring(0, 30) + '...' : item.query,
           itemStyle: {
-            color: `hsl(${index * 36}, 50%, 50%)`
+            color: `hsl(${index * 36}, 70%, 50%)`
           }
         }))
       }
@@ -132,7 +214,7 @@ const NoResultAnalysis: React.FC = () => {
     {
       title: 'Rank',
       key: 'rank',
-      width: '80px',
+      width: 80,
       render: (_, __, index) => (
         <div className="text-center font-semibold">
           #{index + 1}
@@ -143,18 +225,16 @@ const NoResultAnalysis: React.FC = () => {
       title: 'Query',
       dataIndex: 'query',
       key: 'query',
-      width: '70%',
+      width: '60%',
       render: (text: string) => (
-        <div className="max-w-2xl">
-          <p className="text-sm leading-relaxed">{text}</p>
-        </div>
+        <p className="text-sm leading-relaxed">{text}</p>
       ),
     },
     {
       title: 'Occurrence Count',
       dataIndex: 'count',
       key: 'count',
-      width: '150px',
+      width: 150,
       render: (count: number) => (
         <div className="text-center">
           <div className="inline-flex items-center space-x-2 bg-orange-50 px-3 py-1 rounded-full">
@@ -168,9 +248,9 @@ const NoResultAnalysis: React.FC = () => {
     {
       title: 'Percentage',
       key: 'percentage',
-      width: '120px',
+      width: 120,
       render: (_, record) => {
-        const percentage = totalQueries > 0 ? ((record.count / totalQueries) * 100).toFixed(1) : '0';
+        const percentage = stats.totalQueries > 0 ? ((record.count / stats.totalQueries) * 100).toFixed(1) : '0';
         return (
           <div className="text-center">
             <span className="text-gray-600">{percentage}%</span>
@@ -180,19 +260,20 @@ const NoResultAnalysis: React.FC = () => {
     },
   ];
 
-  if (loading) {
-    return (
-      <div className="p-6 flex justify-center items-center min-h-96">
-        <Spin size="large" />
-      </div>
-    );
-  }
+  const rangePresets: {
+    label: string;
+    value: [Dayjs, Dayjs];
+  }[] = [
+    { label: 'Recent Week', value: [dayjs().subtract(7, 'd'), dayjs()] },
+    { label: 'Recent Month', value: [dayjs().subtract(1, 'month'), dayjs()] },
+    { label: 'Recent 3 Months', value: [dayjs().subtract(3, 'month'), dayjs()] },
+  ];
 
   return (
     <div className="p-6">
       <div className="mb-6">
         <Title level={2} className="!mb-2">No Result Analysis</Title>
-        <p className="text-gray-600">Identify queries that returned no results to find knowledge gaps</p>
+        <p className="text-gray-600">Analysis of queries that returned no results, sorted by occurrence count.</p>
       </div>
 
       {error && (
@@ -206,89 +287,55 @@ const NoResultAnalysis: React.FC = () => {
         />
       )}
 
-      {/* Statistics Cards */}
-      <Row gutter={[16, 16]} className="mb-6">
-        <Col xs={24} sm={6}>
-          <Card>
-            <Statistic
-              title="Total No-Result Queries"
-              value={totalQueries}
-              valueStyle={{ color: '#faad14' }}
-              prefix={<StopOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card>
-            <Statistic
-              title="Unique Queries"
-              value={uniqueQueries}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card>
-            <Statistic
-              title="Avg Occurrence"
-              value={avgOccurrence}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card>
-            <Statistic
-              title="Top Query Count"
-              value={topQuery?.count || 0}
-              valueStyle={{ color: '#ff4d4f' }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <Spin spinning={loading}>
+        <Row gutter={[24, 24]} className="mb-6">
+            <Col xs={24} sm={12} md={6}>
+                <Card><Statistic title="Total No-Result Queries" value={stats.totalQueries} prefix={<StopOutlined />} /></Card>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+                <Card><Statistic title="Unique Queries" value={stats.uniqueQueries} prefix={<QuestionCircleOutlined />} /></Card>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+                <Card><Statistic title="Avg Occurrence" value={stats.avgOccurrence} prefix={<CalculatorOutlined />} /></Card>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+                <Card><Statistic title="Top Query Count" value={stats.topQueryCount} prefix={<RiseOutlined />} /></Card>
+            </Col>
+        </Row>
 
-      {/* Charts */}
-      <Row gutter={[16, 16]} className="mb-6">
-        <Col xs={24} lg={14}>
-          <Card>
-            <ReactECharts 
-              option={chartOption} 
-              style={{ height: '400px' }}
-              opts={{ renderer: 'canvas' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} lg={10}>
-          <Card>
-            <ReactECharts 
-              option={wordCloudOption} 
-              style={{ height: '400px' }}
-              opts={{ renderer: 'canvas' }}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Data Table */}
-      <Card>
-        <div className="mb-4">
-          <Title level={4}>Detailed Query Analysis</Title>
-          <p className="text-gray-600">Complete list of queries that returned no results, ranked by frequency</p>
-        </div>
-        <Table
-          columns={columns}
-          dataSource={data}
-          rowKey={(record, index) => `${record.query}-${index}`}
-          pagination={{
-            pageSize: 20,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) => 
-              `${range[0]}-${range[1]} of ${total} items`,
-          }}
-          scroll={{ x: 800 }}
-        />
-      </Card>
+        <Row gutter={[24, 24]}>
+            <Col xs={24} lg={14}>
+                <Card>
+                    <Title level={4}>Top 15 No-Result Queries</Title>
+                    {data.length > 0 ? <ReactECharts option={barChartOption} style={{ height: '400px' }} /> : <div className="h-[400px] flex justify-center items-center"><p>No data for selected period.</p></div>}
+                </Card>
+            </Col>
+            <Col xs={24} lg={10}>
+                <Card>
+                    <Title level={4}>Frequency Distribution</Title>
+                    {data.length > 0 ? <ReactECharts option={pieChartOption} style={{ height: '400px' }} /> : <div className="h-[400px] flex justify-center items-center"><p>No data for selected period.</p></div>}
+                </Card>
+            </Col>
+            <Col span={24}>
+                <Card>
+                    <div className="flex justify-between items-center mb-4">
+                    <Title level={4}>No Result Queries Details</Title>
+                    <Space>
+                        <RangePicker presets={rangePresets} onChange={handleDateChange} />
+                        <Button icon={<DownloadOutlined />} onClick={handleExportCsv} loading={exportingCsv} disabled={data.length === 0}>Export CSV</Button>
+                        <Button icon={<FilePdfOutlined />} onClick={handleExportPdf} loading={exportingPdf} disabled={data.length === 0}>Export PDF</Button>
+                    </Space>
+                    </div>
+                    <Table
+                        columns={columns}
+                        dataSource={data}
+                        rowKey="query"
+                        pagination={{ pageSize: 10 }}
+                    />
+                </Card>
+            </Col>
+        </Row>
+      </Spin>
     </div>
   );
 };

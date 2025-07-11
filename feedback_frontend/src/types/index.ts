@@ -69,6 +69,7 @@ export interface LowRelevanceSummary {
 export interface NoResultSummary {
   query: string;
   count: number;
+  last_occurred_at: string;
 }
 
 export interface User {

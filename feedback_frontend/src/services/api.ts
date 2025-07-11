@@ -187,11 +187,15 @@ export const lowRelevanceAPI = {
 
 // No Result API
 export const noResultAPI = {
-  getSummary: async (limit = 10): Promise<NoResultSummary[]> => {
+  getSummary: async (
+    limit = 10,
+    start_date?: string,
+    end_date?: string
+  ): Promise<NoResultSummary[]> => {
     const response: AxiosResponse<NoResultSummary[]> = await api.get(
       "/api/v1/no-result/summary",
       {
-        params: { limit },
+        params: { limit, start_date, end_date },
       }
     );
     return response.data;
