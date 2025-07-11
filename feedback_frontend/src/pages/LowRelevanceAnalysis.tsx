@@ -8,14 +8,16 @@ import {
   Button,
   Modal,
   Tag,
-  DatePicker 
+  DatePicker,
+  Space
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { EyeOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { EyeOutlined, WarningOutlined, InfoCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import Papa from 'papaparse';
 import { LowRelevanceSummary, LowRelevanceResult } from '../types';
 import { lowRelevanceAPI } from '../services/api';
 
@@ -27,6 +29,7 @@ type RangeValue = [Dayjs | null, Dayjs | null] | null;
 const LowRelevanceAnalysis: React.FC = () => {
   const [data, setData] = useState<LowRelevanceSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<LowRelevanceResult | null>(null);
@@ -87,10 +90,47 @@ const LowRelevanceAnalysis: React.FC = () => {
     });
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const startDate = dateRange?.[0]?.startOf('day').toISOString();
+      const endDate = dateRange?.[1]?.endOf('day').toISOString();
+
+      // Fetch all data for the given date range
+      const result = await lowRelevanceAPI.getResults(0, pagination.total, startDate, endDate);
+      
+      const exportData = result.data.flatMap(summary => 
+        summary.results.map(detail => ({
+          Query: summary.query,
+          'Relevance Score': detail.relevance_score,
+          'Page ID': detail.page_id,
+          'Section Name': detail.section_name,
+          'Page Title': detail.title,
+          'Created At': dayjs(detail.created_at).format('YYYY-MM-DD HH:mm:ss'),
+          Content: detail.content?.substring(0, 200) || '',
+        }))
+      );
+
+      const csv = Papa.unparse(exportData);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `low-relevance-export-${dayjs().format('YYYYMMDD')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+    } catch (err) {
+      setError('Failed to export data.');
+      console.error('Export error:', err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const expandedRowRender = (record: LowRelevanceSummary) => {
     const columns: ColumnsType<LowRelevanceResult> = [
-      { title: 'Section Name', dataIndex: 'section_name', key: 'section_name', width: '20%' },
-      { title: 'Page Title', dataIndex: 'title', key: 'title', width: '20%' },
       {
         title: 'Content',
         dataIndex: 'content',
@@ -98,6 +138,8 @@ const LowRelevanceAnalysis: React.FC = () => {
         width: '40%',
         render: (text) => <Paragraph ellipsis={{ rows: 2 }}>{text || 'N/A'}</Paragraph>
       },
+      { title: 'Section Name', dataIndex: 'section_name', key: 'section_name', width: '20%' },
+      { title: 'Page Title', dataIndex: 'title', key: 'title', width: '20%' },
       { title: 'Relevance', dataIndex: 'relevance_score', key: 'relevance_score', width: 120, sorter: (a, b) => a.relevance_score - b.relevance_score, render: (score) => <Tag color={score < 0.3 ? 'red' : 'orange'}>{score.toFixed(3)}</Tag> },
       { title: 'Created At', dataIndex: 'created_at', key: 'created_at', width: 150, render: (date) => dayjs(date).format('YYYY-MM-DD HH:mm') },
       {
@@ -194,7 +236,17 @@ const LowRelevanceAnalysis: React.FC = () => {
       <Card>
         <div className="flex justify-between items-center mb-4">
           <Title level={4}>Low Relevance Summaries</Title>
-          <RangePicker presets={rangePresets} onChange={handleDateChange} />
+          <Space>
+            <RangePicker presets={rangePresets} onChange={handleDateChange} />
+            <Button 
+              icon={<DownloadOutlined />} 
+              onClick={handleExport}
+              loading={exporting}
+              disabled={data.length === 0}
+            >
+              Export CSV
+            </Button>
+          </Space>
         </div>
         <Table
           columns={columns}
