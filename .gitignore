@@ -74,3 +74,6 @@ logs/
 
 *.log
 pid.file
+
+GEMINI.md
+prd.md

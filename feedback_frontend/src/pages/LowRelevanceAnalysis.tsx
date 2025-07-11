@@ -5,22 +5,24 @@ import {
   Typography,
   Alert,
   Spin,
-  Slider,
-  Space,
   Button,
   Modal,
   Tag,
-  Row,
-  Col,
-  Statistic
+  DatePicker 
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { EyeOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { LowRelevanceSummary, LowRelevanceResult } from '../types';
 import { lowRelevanceAPI } from '../services/api';
 
 const { Title, Paragraph, Text } = Typography;
+const { RangePicker } = DatePicker;
+
+type RangeValue = [Dayjs | null, Dayjs | null] | null;
 
 const LowRelevanceAnalysis: React.FC = () => {
   const [data, setData] = useState<LowRelevanceSummary[]>([]);
@@ -28,7 +30,7 @@ const LowRelevanceAnalysis: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<LowRelevanceResult | null>(null);
-  const [scoreRange, setScoreRange] = useState<[number, number]>([0, 1]);
+  const [dateRange, setDateRange] = useState<RangeValue>(null);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -37,17 +39,21 @@ const LowRelevanceAnalysis: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [pagination.current, pagination.pageSize, scoreRange]);
+  }, [pagination.current, pagination.pageSize, dateRange]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       const skip = (pagination.current - 1) * pagination.pageSize;
+      
+      const startDate = dateRange?.[0]?.startOf('day').toISOString();
+      const endDate = dateRange?.[1]?.endOf('day').toISOString();
+
       const result = await lowRelevanceAPI.getResults(
         skip,
         pagination.pageSize,
-        scoreRange[0],
-        scoreRange[1]
+        startDate,
+        endDate
       );
 
       setData(result.data);
@@ -61,6 +67,11 @@ const LowRelevanceAnalysis: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDateChange = (dates: RangeValue) => {
+    setDateRange(dates);
+    setPagination(prev => ({ ...prev, current: 1 })); // Reset to first page
   };
 
   const handleViewDetails = (record: LowRelevanceResult) => {
@@ -83,7 +94,7 @@ const LowRelevanceAnalysis: React.FC = () => {
         dataIndex: 'content',
         key: 'content',
         width: '50%',
-        render: (text) => <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: 'more' }}>{text || 'N/A'}</Paragraph>
+        render: (text) => <Paragraph ellipsis={{ rows: 2 }}>{text || 'N/A'}</Paragraph>
       },
       { title: 'Relevance', dataIndex: 'relevance_score', key: 'relevance_score', width: 120, sorter: (a, b) => a.relevance_score - b.relevance_score, render: (score) => <Tag color={score < 0.3 ? 'red' : 'orange'}>{score.toFixed(3)}</Tag> },
       { title: 'Index', dataIndex: 'original_index', key: 'original_index', width: 100, sorter: (a, b) => a.original_index - b.original_index, render: (text) => <Tag>#{text}</Tag> },
@@ -144,6 +155,15 @@ const LowRelevanceAnalysis: React.FC = () => {
     },
   ];
 
+  const rangePresets: {
+    label: string;
+    value: [Dayjs, Dayjs];
+  }[] = [
+    { label: 'Recent Week', value: [dayjs().subtract(7, 'd'), dayjs()] },
+    { label: 'Recent Month', value: [dayjs().subtract(1, 'month'), dayjs()] },
+    { label: 'Recent 3 Months', value: [dayjs().subtract(3, 'month'), dayjs()] },
+  ];
+
   if (loading && data.length === 0) {
     return (
       <div className="p-6 flex justify-center items-center min-h-96">
@@ -156,7 +176,7 @@ const LowRelevanceAnalysis: React.FC = () => {
     <div className="p-6">
       <div className="mb-6">
         <Title level={2} className="!mb-2">Low Relevance Analysis</Title>
-        <p className="text-gray-600">Grouped analysis of queries with low relevance scores.</p>
+        <p className="text-gray-600">Grouped analysis of queries with low relevance scores, sorted by most recent occurrence.</p>
       </div>
 
       {error && (
@@ -173,6 +193,7 @@ const LowRelevanceAnalysis: React.FC = () => {
       <Card>
         <div className="flex justify-between items-center mb-4">
           <Title level={4}>Low Relevance Summaries</Title>
+          <RangePicker presets={rangePresets} onChange={handleDateChange} />
         </div>
         <Table
           columns={columns}
@@ -201,10 +222,15 @@ const LowRelevanceAnalysis: React.FC = () => {
         {selectedRecord && (
           <div>
             <p><strong>Query:</strong> {selectedRecord.query}</p>
-            <p><strong>Content:</strong> {selectedRecord.content || 'N/A'}</p>
             <p><strong>Relevance Score:</strong> {selectedRecord.relevance_score.toFixed(4)}</p>
             <p><strong>Original Index:</strong> {selectedRecord.original_index}</p>
             <p><strong>Created At:</strong> {dayjs(selectedRecord.created_at).format('YYYY-MM-DD HH:mm:ss')}</p>
+            <p><strong>Content:</strong></p>
+            <div className="prose prose-sm max-w-none p-2 border rounded bg-gray-50" style={{ wordBreak: 'break-word' }}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {selectedRecord.content || '*No content available*'}
+              </ReactMarkdown>
+            </div>
           </div>
         )}
       </Modal>

@@ -174,12 +174,12 @@ export const lowRelevanceAPI = {
   getResults: async (
     skip = 0,
     limit = 100,
-    min_score?: number,
-    max_score?: number
+    start_date?: string,
+    end_date?: string
   ): Promise<PaginatedLowRelevanceResponse> => {
     const response: AxiosResponse<PaginatedLowRelevanceResponse> =
       await api.get("/api/v1/low-relevance-results", {
-        params: { skip, limit, min_score, max_score },
+        params: { skip, limit, start_date, end_date },
       });
     return response.data;
   },
@@ -228,6 +228,22 @@ export const userAPI = {
 
   getMe: async (): Promise<User> => {
     const response: AxiosResponse<User> = await api.get("/api/v1/users/me");
+    return response.data;
+  },
+};
+
+// OneNote Sync Log API
+export const oneNoteSyncLogAPI = {
+  getStats: async (page = 1, pageSize = 20) => {
+    const response = await api.get("/api/v1/onenote-sync/stats", {
+      params: { page, pageSize },
+    });
+    return response.data;
+  },
+  getDetails: async (syncRunId: string) => {
+    const response = await api.get(
+      `/api/v1/onenote-sync/stats/${syncRunId}`
+    );
     return response.data;
   },
 };

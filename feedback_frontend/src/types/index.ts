@@ -155,3 +155,32 @@ export interface FeedbackDashboardSummary {
   negative_feedback_count: number;
   recent_feedback: RecentFeedback[];
 }
+
+// OneNote Sync Log Types
+export interface OneNoteSyncStat {
+  sync_run_id: string;
+  sync_date: string;
+  created_count: number;
+  updated_count: number;
+  deleted_count: number;
+}
+
+export interface PaginatedOneNoteSyncStatsResponse {
+  total: number;
+  page: number;
+  pageSize: number;
+  data: OneNoteSyncStat[];
+}
+
+export interface OneNotePageDetail {
+  page_id: string;
+  section_name: string;
+  title: string;
+}
+
+export interface OneNoteSyncRunDetail {
+  sync_run_id: string;
+  created_pages: OneNotePageDetail[];
+  updated_pages: OneNotePageDetail[];
+  deleted_pages: OneNotePageDetail[];
+}

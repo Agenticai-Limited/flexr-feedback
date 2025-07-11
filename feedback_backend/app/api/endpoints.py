@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import timedelta
+from datetime import timedelta, datetime
 from loguru import logger
 
 from app.core.config import settings
@@ -178,6 +178,8 @@ async def get_qa_logs(
 async def get_low_relevance_results(
     skip: int = 0,
     limit: int = 100,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(get_current_user)
 ):
@@ -197,7 +199,9 @@ async def get_low_relevance_results(
     return crud.get_low_relevance_results(
         db=db,
         skip=skip,
-        limit=limit
+        limit=limit,
+        start_date=start_date,
+        end_date=end_date
     )
 
 @router.get("/no-result/summary", response_model=List[schemas.NoResultSummary])
@@ -215,3 +219,36 @@ async def get_no_result_summary(
             detail="Limit must be between 1 and 100"
         )
     return crud.get_no_result_summary(db=db, limit=limit)
+
+# OneNote Sync Log endpoints
+@router.get("/onenote-sync/stats", response_model=schemas.OneNoteSyncStatsResponse)
+async def get_onenote_sync_stats(
+    page: int = 1,
+    pageSize: int = 20,
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(get_current_user)
+):
+    """
+    Get OneNote sync statistics, paginated.
+    """
+    if page < 1:
+        raise HTTPException(status_code=400, detail="Page must be greater than 0")
+    if pageSize < 1 or pageSize > 100:
+        raise HTTPException(status_code=400, detail="PageSize must be between 1 and 100")
+    
+    return crud.get_sync_stats(db=db, page=page, page_size=pageSize)
+
+@router.get("/onenote-sync/stats/{sync_run_id}", response_model=schemas.OneNoteSyncRunDetail)
+async def get_onenote_sync_run_details(
+    sync_run_id: str,
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(get_current_user)
+):
+    """
+    Get details for a specific OneNote sync run.
+    """
+    details = crud.get_sync_run_details(db=db, sync_run_id=sync_run_id)
+    if not details["created_pages"] and not details["updated_pages"] and not details["deleted_pages"]:
+        raise HTTPException(status_code=404, detail="Sync run not found or has no logs")
+        
+    return details

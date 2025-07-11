@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, case
 from typing import List, Optional
 from loguru import logger
-from app.models.models import User, Feedback, QALogs, NoResultLogs, LowRelevanceResults, RerankResults
+from datetime import datetime, timedelta
+from app.models.models import User, Feedback, QALogs, NoResultLogs, LowRelevanceResults, RerankResults, OneNoteSyncLog, OneNotePageMetadata
 from app.schemas import schemas
 from app.core.security import verify_password
 import bcrypt
@@ -210,36 +211,62 @@ def get_qa_logs(
 def get_low_relevance_results(
     db: Session,
     skip: int = 0,
-    limit: int = 100
+    limit: int = 100,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None
 ) -> dict:
     """
     Get low relevance results summary, grouped by query, with nested details and total count.
+    Results are sorted by the most recent occurrence in each group.
     """
     try:
-        # Subquery to count the number of distinct groups
-        subquery = db.query(LowRelevanceResults.query).group_by(LowRelevanceResults.query).subquery()
-        total = db.query(func.count(subquery.c.query)).scalar()
+        # Base query for filtering
+        query_base = db.query(LowRelevanceResults)
+        if start_date:
+            query_base = query_base.filter(LowRelevanceResults.created_at >= start_date)
+        if end_date:
+            query_base = query_base.filter(LowRelevanceResults.created_at <= end_date)
 
-        # Construct a JSON object for each detailed row
-        detail_object = func.json_build_object(
-            "id", LowRelevanceResults.id,
-            "query", LowRelevanceResults.query,
-            "original_index", LowRelevanceResults.original_index,
-            "relevance_score", LowRelevanceResults.relevance_score,
-            "content", LowRelevanceResults.content,
-            "created_at", LowRelevanceResults.created_at
-        )
+        filtered_subquery = query_base.subquery()
 
-        results = db.query(
-            LowRelevanceResults.query,
-            func.count(LowRelevanceResults.id).label("count"),
-            func.avg(LowRelevanceResults.relevance_score).label("avg_relevance_score"),
-            func.json_agg(detail_object).label("results")
-        ).group_by(
-            LowRelevanceResults.query
-        ).order_by(
-            desc("count")
-        ).offset(skip).limit(limit).all()
+        # Query for aggregation to get groups
+        agg_query = db.query(
+            filtered_subquery.c.query,
+            func.count(filtered_subquery.c.id).label("count"),
+            func.avg(filtered_subquery.c.relevance_score).label("avg_relevance_score"),
+            func.max(filtered_subquery.c.created_at).label("latest_occurrence")
+        ).group_by(filtered_subquery.c.query)
+
+        # Get total count of groups
+        total = agg_query.count()
+
+        # Get paginated groups, sorted by the latest occurrence
+        paginated_groups = agg_query.order_by(desc("latest_occurrence")).offset(skip).limit(limit).all()
+        
+        queries = [g.query for g in paginated_groups]
+
+        if not queries:
+            return {"total": total, "data": []}
+
+        # Get all relevant detail rows for the queries in the current page
+        details_query = query_base.filter(LowRelevanceResults.query.in_(queries)).order_by(desc(LowRelevanceResults.created_at)).all()
+
+        # Map details to their respective query group
+        details_map = {}
+        for detail in details_query:
+            if detail.query not in details_map:
+                details_map[detail.query] = []
+            details_map[detail.query].append(detail)
+
+        # Combine groups with their details
+        results = []
+        for group in paginated_groups:
+            results.append({
+                "query": group.query,
+                "count": group.count,
+                "avg_relevance_score": group.avg_relevance_score,
+                "results": details_map.get(group.query, [])
+            })
 
         return {"total": total, "data": results}
     except Exception as e:
@@ -276,4 +303,98 @@ def get_no_result_summary(db: Session, limit: int = 10) -> List[dict]:
         ).limit(limit).all()
     except Exception as e:
         logger.error(f"Error in get_no_result_summary: {str(e)}")
+        raise 
+
+# OneNote Sync Log operations
+def get_sync_stats(db: Session, page: int = 1, page_size: int = 20) -> dict:
+    """
+    Get paginated OneNote sync statistics, grouped by sync_run_id.
+    """
+    try:
+        offset = (page - 1) * page_size
+
+        # Subquery for grouping and counting actions
+        action_subquery = db.query(
+            OneNoteSyncLog.sync_run_id,
+            func.sum(case((OneNoteSyncLog.action_type == 'CREATED', 1), else_=0)).label('created_count'),
+            func.sum(case((OneNoteSyncLog.action_type == 'UPDATED', 1), else_=0)).label('updated_count'),
+            func.sum(case((OneNoteSyncLog.action_type == 'DELETED', 1), else_=0)).label('deleted_count'),
+            func.min(OneNoteSyncLog.log_timestamp).label('sync_date')
+        ).group_by(OneNoteSyncLog.sync_run_id).subquery()
+
+        # Main query for pagination and ordering
+        query = db.query(action_subquery).order_by(desc(action_subquery.c.sync_run_id))
+        
+        total = query.count()
+        paginated_results = query.offset(offset).limit(page_size).all()
+
+        # Formatting the date part
+        results = [
+            {
+                "sync_run_id": r.sync_run_id,
+                "sync_date": r.sync_date.strftime('%Y-%m-%d'),
+                "created_count": r.created_count,
+                "updated_count": r.updated_count,
+                "deleted_count": r.deleted_count
+            } for r in paginated_results
+        ]
+
+        return {
+            "total": total,
+            "page": page,
+            "pageSize": page_size,
+            "data": results
+        }
+    except Exception as e:
+        logger.error(f"Error in get_sync_stats: {str(e)}")
+        raise
+
+def get_sync_run_details(db: Session, sync_run_id: str) -> dict:
+    """
+    Get detailed page change information for a specific sync_run_id.
+    """
+    try:
+        # Get all logs for the given sync_run_id
+        logs = (
+            db.query(OneNoteSyncLog.page_id, OneNoteSyncLog.action_type)
+            .filter(OneNoteSyncLog.sync_run_id == sync_run_id)
+            .all()
+        )
+
+        page_ids = [log.page_id for log in logs]
+        
+        # Get metadata for all affected pages
+        metadata_query = (
+            db.query(OneNotePageMetadata)
+            .filter(OneNotePageMetadata.page_id.in_(page_ids))
+            .all()
+        )
+        metadata_map = {meta.page_id: meta for meta in metadata_query}
+
+        # Organize pages by action type
+        result = {
+            "sync_run_id": sync_run_id,
+            "created_pages": [],
+            "updated_pages": [],
+            "deleted_pages": []
+        }
+
+        for log in logs:
+            meta = metadata_map.get(log.page_id)
+            page_detail = {
+                "page_id": log.page_id,
+                "section_name": meta.section_name if meta else "N/A",
+                "title": meta.title if meta else "Info unavailable"
+            }
+            
+            if log.action_type == 'CREATED':
+                result["created_pages"].append(page_detail)
+            elif log.action_type == 'UPDATED':
+                result["updated_pages"].append(page_detail)
+            elif log.action_type == 'DELETED':
+                result["deleted_pages"].append(page_detail)
+        
+        return result
+    except Exception as e:
+        logger.error(f"Error in get_sync_run_details for sync_run_id {sync_run_id}: {str(e)}")
         raise 

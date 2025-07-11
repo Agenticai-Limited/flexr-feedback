@@ -10,7 +10,8 @@ import {
   UserOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
-  MenuUnfoldOutlined
+  MenuUnfoldOutlined,
+  SyncOutlined
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -50,6 +51,11 @@ const MainLayout: React.FC = () => {
       key: '/no-result',
       icon: <StopOutlined />,
       label: 'No Result Analysis',
+    },
+    {
+      key: '/onenote-sync-log',
+      icon: <SyncOutlined />,
+      label: 'OneNote Sync Log',
     },
     ...(userInfo?.is_admin ? [{
       key: '/users',

@@ -12,6 +12,7 @@ import QALogs from './pages/QALogs';
 import LowRelevanceAnalysis from './pages/LowRelevanceAnalysis';
 import NoResultAnalysis from './pages/NoResultAnalysis';
 import UserManagement from './pages/UserManagement';
+import OneNoteSyncLog from './pages/OneNoteSyncLog';
 
 // Ant Design theme configuration
 const theme = {
@@ -48,6 +49,7 @@ function App() {
                   <UserManagement />
                 </AdminRoute>
               } />
+              <Route path="onenote-sync-log" element={<OneNoteSyncLog />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

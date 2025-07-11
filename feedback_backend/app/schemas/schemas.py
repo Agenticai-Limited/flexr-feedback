@@ -157,4 +157,29 @@ class LowRelevanceResultSummary(BaseModel):
 
 class LowRelevanceResultResponse(BaseModel):
     total: int
-    data: List[LowRelevanceResultSummary] 
+    data: List[LowRelevanceResultSummary]
+
+# OneNote Sync Log Schemas
+class OneNoteSyncStat(BaseModel):
+    sync_run_id: str
+    sync_date: str
+    created_count: int
+    updated_count: int
+    deleted_count: int
+
+class OneNoteSyncStatsResponse(BaseModel):
+    total: int
+    page: int
+    pageSize: int
+    data: List[OneNoteSyncStat]
+
+class OneNotePageDetail(BaseModel):
+    page_id: str
+    section_name: Optional[str] = "N/A"
+    title: Optional[str] = "Info unavailable"
+
+class OneNoteSyncRunDetail(BaseModel):
+    sync_run_id: str
+    created_pages: List[OneNotePageDetail]
+    updated_pages: List[OneNotePageDetail]
+    deleted_pages: List[OneNotePageDetail] 

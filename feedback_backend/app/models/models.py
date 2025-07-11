@@ -92,4 +92,33 @@ class NoResultLogs(Base):
 
     __table_args__ = (
         Index('ix_no_result_logs_query_text', 'query', postgresql_using='gin'),
-    ) 
+    )
+
+class OneNoteSyncLog(Base):
+    """
+    OneNote sync log model
+    """
+    __tablename__ = "onenote_sync_log"
+
+    log_id = Column(Integer, primary_key=True, autoincrement=True)
+    sync_run_id = Column(Text, nullable=False, index=True)
+    page_id = Column(Text, nullable=False, index=True)
+    action_type = Column(Text, nullable=False)
+    log_timestamp = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint(action_type.in_(['CREATED', 'UPDATED', 'DELETED'])),
+        Index('ix_onenote_sync_log_run_id', 'sync_run_id'),
+        Index('ix_onenote_sync_log_page_id', 'page_id'),
+    )
+
+class OneNotePageMetadata(Base):
+    """
+    OneNote page metadata model
+    """
+    __tablename__ = "onenote_pages_metadata"
+
+    page_id = Column(Text, primary_key=True)
+    last_modified_time = Column(DateTime(timezone=True))
+    title = Column(Text)
+    section_name = Column(Text) 
