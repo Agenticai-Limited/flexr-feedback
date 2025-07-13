@@ -213,23 +213,17 @@ def get_low_relevance_results(
     skip: int = 0,
     limit: int = 100,
     start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None,
+    results_limit_per_query: int = 10  # Max results to show per query group
 ) -> dict:
     """
     Get low relevance results summary, grouped by query, with nested details and total count.
     Results are sorted by the most recent occurrence in each group.
+    Details for each group are limited to the most recent occurrences.
     """
     try:
-        # Base query for filtering, joining with metadata
-        query_base = db.query(
-            LowRelevanceResults,
-            OneNotePageMetadata.section_name,
-            OneNotePageMetadata.title
-        ).outerjoin(
-            OneNotePageMetadata, 
-            LowRelevanceResults.page_id == OneNotePageMetadata.page_id
-        )
-
+        # Base query for filtering
+        query_base = db.query(LowRelevanceResults)
         if start_date:
             query_base = query_base.filter(LowRelevanceResults.created_at >= start_date)
         if end_date:
@@ -256,19 +250,48 @@ def get_low_relevance_results(
         if not queries:
             return {"total": total, "data": []}
 
-        # Get all relevant detail rows for the queries in the current page
-        details_query = query_base.filter(LowRelevanceResults.query.in_(queries)).order_by(desc(LowRelevanceResults.created_at)).all()
+        # --- FIX STARTS HERE ---
+        # Use a window function to rank results within each query group and fetch the top N.
+        # This is more efficient than fetching all and then processing in Python.
+        
+        # Subquery to rank results within each partition of 'query'
+        ranked_results_subquery = db.query(
+            LowRelevanceResults,
+            OneNotePageMetadata.section_name,
+            OneNotePageMetadata.title,
+            func.row_number().over(
+                partition_by=LowRelevanceResults.query,
+                order_by=desc(LowRelevanceResults.created_at)
+            ).label("row_num")
+        ).outerjoin(
+            OneNotePageMetadata, 
+            LowRelevanceResults.page_id == OneNotePageMetadata.page_id
+        ).filter(LowRelevanceResults.query.in_(queries)).subquery()
+
+        # Final query to select only the top N results from the ranked subquery
+        details_query = db.query(ranked_results_subquery).filter(
+            ranked_results_subquery.c.row_num <= results_limit_per_query
+        ).all()
+        # --- FIX ENDS HERE ---
 
         # Map details to their respective query group
         details_map = {}
-        for detail, section_name, title in details_query:
-            if detail.query not in details_map:
-                details_map[detail.query] = []
+        for detail in details_query:
+            query = detail.query
+            if query not in details_map:
+                details_map[query] = []
             
-            # Manually add joined fields to the ORM instance
-            detail.section_name = section_name
-            detail.title = title
-            details_map[detail.query].append(detail)
+            # Create a temporary object to hold the combined data
+            result_item = schemas.LowRelevanceResultDetail(
+                id=detail.id,
+                query=detail.query,
+                page_id=detail.page_id,
+                relevance_score=detail.relevance_score,
+                created_at=detail.created_at,
+                section_name=detail.section_name,
+                title=detail.title
+            )
+            details_map[query].append(result_item)
 
         # Combine groups with their details
         results = []
@@ -302,6 +325,7 @@ def create_rerank_result(db: Session, rerank_result: schemas.RerankResultCreate)
 # No Result Logs operations
 def get_no_result_summary(
     db: Session, 
+    skip: int = 0,
     limit: int = 10,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None
@@ -320,12 +344,18 @@ def get_no_result_summary(
             query_base = query_base.filter(NoResultLogs.created_at >= start_date)
         if end_date:
             query_base = query_base.filter(NoResultLogs.created_at <= end_date)
+        
+        # Get total count before pagination
+        total_query = query_base.group_by(NoResultLogs.query).subquery()
+        total = db.query(func.count()).select_from(total_query).scalar()
 
-        return query_base.group_by(
+        results = query_base.group_by(
             NoResultLogs.query
         ).order_by(
             desc("count")
-        ).limit(limit).all()
+        ).offset(skip).limit(limit).all()
+
+        return {"total": total, "data": results}
     except Exception as e:
         logger.error(f"Error in get_no_result_summary: {str(e)}")
         raise 

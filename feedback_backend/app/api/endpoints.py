@@ -204,8 +204,9 @@ async def get_low_relevance_results(
         end_date=end_date
     )
 
-@router.get("/no-result/summary", response_model=List[schemas.NoResultSummary])
+@router.get("/no-result/summary", response_model=schemas.NoResultSummaryResponse)
 async def get_no_result_summary(
+    skip: int = 0,
     limit: int = 10,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
@@ -220,7 +221,7 @@ async def get_no_result_summary(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Limit must be between 1 and 1000"
         )
-    return crud.get_no_result_summary(db=db, limit=limit, start_date=start_date, end_date=end_date)
+    return crud.get_no_result_summary(db=db, skip=skip, limit=limit, start_date=start_date, end_date=end_date)
 
 # OneNote Sync Log endpoints
 @router.get("/onenote-sync/stats", response_model=schemas.OneNoteSyncStatsResponse)

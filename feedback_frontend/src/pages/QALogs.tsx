@@ -39,17 +39,19 @@ const QALogs: React.FC = () => {
   });
 
   const loadQALogs = async (
-    page = pagination.current,
-    pageSize = pagination.pageSize,
-    search = searchText
+    page: number,
+    pageSize: number,
+    search: string
   ) => {
     try {
       setLoading(true);
-      const skip = ((page || 1) - 1) * (pageSize || 20);
+      const skip = (page - 1) * pageSize;
       const response = await qaLogsAPI.getLogs(skip, pageSize, search || undefined);
       setData(response.data);
       setPagination(prev => ({
         ...prev,
+        current: page,
+        pageSize: pageSize,
         total: response.total,
       }));
     } catch (err) {
@@ -61,7 +63,7 @@ const QALogs: React.FC = () => {
   };
 
   useEffect(() => {
-    loadQALogs();
+    loadQALogs(pagination.current, pagination.pageSize, searchText);
   }, [pagination.current, pagination.pageSize, searchText]);
 
   const handleSearch = (value: string) => {

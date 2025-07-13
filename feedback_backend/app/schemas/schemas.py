@@ -100,6 +100,16 @@ class LowRelevanceResultCreate(LowRelevanceResultBase):
 class LowRelevanceResult(LowRelevanceResultBase):
     id: int
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class LowRelevanceResultDetail(BaseModel):
+    id: int
+    query: str
+    page_id: Optional[str] = None
+    relevance_score: float
+    created_at: datetime
     section_name: Optional[str] = "N/A"
     title: Optional[str] = "Info unavailable"
 
@@ -110,44 +120,7 @@ class LowRelevanceResult(LowRelevanceResultBase):
 class NoResultLogBase(BaseModel):
     query: str
     task_id: str
-
-class NoResultLogCreate(NoResultLogBase):
-    pass
-
-class NoResultLog(NoResultLogBase):
-    id: int
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-# Summary schemas
-class FeedbackDetail(BaseModel):
-    query: str
-    response: str
-    liked: bool
-    reason: Optional[str] = None
-    created_at: datetime
-
-class FeedbackResponse(BaseModel):
-    total: int
-    data: List[FeedbackDetail]
-
-class RecentFeedbackItem(BaseModel):
-    id: int
-    query: str
-    liked: bool
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-class FeedbackDashboardSummary(BaseModel):
-    total_feedback: int
-    positive_feedback_count: int
-    negative_feedback_count: int
-    recent_feedback: List[RecentFeedbackItem]
-
+# ... (rest of the file is the same until NoResultSummary)
 class NoResultSummary(BaseModel):
     query: str
     count: int
@@ -156,15 +129,20 @@ class NoResultSummary(BaseModel):
     class Config:
         from_attributes = True
 
+class NoResultSummaryResponse(BaseModel):
+    total: int
+    data: List[NoResultSummary]
+
 class LowRelevanceResultSummary(BaseModel):
     query: str
     count: int
     avg_relevance_score: float
-    results: List[LowRelevanceResult]
+    results: List[LowRelevanceResultDetail]
 
 class LowRelevanceResultResponse(BaseModel):
     total: int
     data: List[LowRelevanceResultSummary]
+
 
 # OneNote Sync Log Schemas
 class OneNoteSyncStat(BaseModel):
