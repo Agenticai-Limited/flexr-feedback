@@ -191,8 +191,8 @@ export const noResultAPI = {
     limit = 10,
     start_date?: string,
     end_date?: string
-  ): Promise<NoResultSummary[]> => {
-    const response: AxiosResponse<NoResultSummary[]> = await api.get(
+  ): Promise<PaginatedNoResultSummaryResponse> => {
+    const response: AxiosResponse<PaginatedNoResultSummaryResponse> = await api.get(
       "/api/v1/no-result/summary",
       {
         params: { limit, start_date, end_date },

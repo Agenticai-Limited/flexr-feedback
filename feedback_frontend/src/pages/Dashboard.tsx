@@ -17,12 +17,13 @@ const Dashboard: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [feedbackSummaryData, noResultSummaryData] = await Promise.all([
+        const [feedbackSummaryData, noResultSummaryResponse] = await Promise.all([
           feedbackAPI.getDashboardSummary(),
           noResultAPI.getSummary(10) // Fetch top 10 no-result queries
         ]);
         setSummary(feedbackSummaryData);
-        setNoResultData(noResultSummaryData);
+        // FIX: Use the 'data' property from the API response
+        setNoResultData(noResultSummaryResponse.data || []);
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
         setError('Could not load dashboard data. The backend service may be unavailable.');
@@ -34,7 +35,10 @@ const Dashboard: React.FC = () => {
     fetchData();
   }, []);
 
-  const totalNoResultQueries = noResultData.reduce((sum, item) => sum + item.count, 0);
+  // FIX: Ensure noResultData is an array before calling reduce
+  const totalNoResultQueries = Array.isArray(noResultData) 
+    ? noResultData.reduce((sum, item) => sum + item.count, 0)
+    : 0;
 
   const recentFeedbackColumns: any[] = [
     {

@@ -329,7 +329,7 @@ const LowRelevanceAnalysis: React.FC = () => {
         <div className="flex justify-between items-center mb-4">
           <Title level={4}>Low Relevance Summaries</Title>
           <Space>
-            <RangePicker presets={rangePresets} onChange={handleDateChange} />
+            <RangePicker name="lowRelevanceDateRange" presets={rangePresets} onChange={handleDateChange} />
             <Button 
               icon={<DownloadOutlined />} 
               onClick={handleExportCsv}
@@ -363,7 +363,7 @@ const LowRelevanceAnalysis: React.FC = () => {
       {/* Details Modal */}
       <Modal
         title="Query Details"
-        visible={modalVisible}
+        open={modalVisible}
         onCancel={() => setModalVisible(false)}
         footer={[
           <Button key="close" onClick={() => setModalVisible(false)}>

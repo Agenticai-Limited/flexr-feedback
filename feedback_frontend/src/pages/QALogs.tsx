@@ -171,6 +171,7 @@ const QALogs: React.FC = () => {
           <div>
             <Title level={5} className="!mb-2">Search Filters</Title>
             <Search
+              name="qaLogSearch"
               placeholder="Search by query content"
               allowClear
               enterButton={<SearchOutlined />}

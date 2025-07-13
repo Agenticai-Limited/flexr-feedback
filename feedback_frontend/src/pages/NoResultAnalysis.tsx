@@ -51,14 +51,14 @@ const NoResultAnalysis: React.FC = () => {
       setLoading(true);
       const startDate = dateRange?.[0]?.startOf('day').toISOString();
       const endDate = dateRange?.[1]?.endOf('day').toISOString();
-      const result = await noResultAPI.getSummary(1000, startDate, endDate); 
-      
-      setData(result);
+      const result = await noResultAPI.getSummary(1000, startDate, endDate);
+      const resultData = result.data;
+      setData(resultData);
 
       // Calculate stats
-      const total = result.reduce((sum, item) => sum + item.count, 0);
-      const unique = result.length;
-      const topCount = result.length > 0 ? result[0].count : 0;
+      const total = resultData.reduce((sum, item) => sum + item.count, 0);
+      const unique = resultData.length;
+      const topCount = resultData.length > 0 ? resultData[0].count : 0;
       setStats({
           totalQueries: total,
           uniqueQueries: unique,
@@ -321,7 +321,7 @@ const NoResultAnalysis: React.FC = () => {
                     <div className="flex justify-between items-center mb-4">
                     <Title level={4}>No Result Queries Details</Title>
                     <Space>
-                        <RangePicker presets={rangePresets} onChange={handleDateChange} />
+                        <RangePicker name="noResultDateRange" presets={rangePresets} onChange={handleDateChange} />
                         <Button icon={<DownloadOutlined />} onClick={handleExportCsv} loading={exportingCsv} disabled={data.length === 0}>Export CSV</Button>
                         <Button icon={<FilePdfOutlined />} onClick={handleExportPdf} loading={exportingPdf} disabled={data.length === 0}>Export PDF</Button>
                     </Space>

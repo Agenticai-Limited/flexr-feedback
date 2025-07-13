@@ -172,7 +172,7 @@ const UserManagement: React.FC = () => {
 
             <Modal
                 title="Create a new user"
-                visible={isModalVisible}
+                open={isModalVisible}
                 onCancel={handleCancel}
                 footer={null}
             >

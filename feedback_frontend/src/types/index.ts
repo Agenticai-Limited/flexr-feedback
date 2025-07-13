@@ -72,6 +72,11 @@ export interface NoResultSummary {
   last_occurred_at: string;
 }
 
+export interface PaginatedNoResultSummaryResponse {
+  total: number;
+  data: NoResultSummary[];
+}
+
 export interface User {
   id: number;
   username: string;

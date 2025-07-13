@@ -120,7 +120,44 @@ class LowRelevanceResultDetail(BaseModel):
 class NoResultLogBase(BaseModel):
     query: str
     task_id: str
-# ... (rest of the file is the same until NoResultSummary)
+
+class NoResultLogCreate(NoResultLogBase):
+    pass
+
+class NoResultLog(NoResultLogBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Summary schemas
+class FeedbackDetail(BaseModel):
+    query: str
+    response: str
+    liked: bool
+    reason: Optional[str] = None
+    created_at: datetime
+
+class FeedbackResponse(BaseModel):
+    total: int
+    data: List[FeedbackDetail]
+
+class RecentFeedbackItem(BaseModel):
+    id: int
+    query: str
+    liked: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class FeedbackDashboardSummary(BaseModel):
+    total_feedback: int
+    positive_feedback_count: int
+    negative_feedback_count: int
+    recent_feedback: List[RecentFeedbackItem]
+
 class NoResultSummary(BaseModel):
     query: str
     count: int
@@ -142,7 +179,6 @@ class LowRelevanceResultSummary(BaseModel):
 class LowRelevanceResultResponse(BaseModel):
     total: int
     data: List[LowRelevanceResultSummary]
-
 
 # OneNote Sync Log Schemas
 class OneNoteSyncStat(BaseModel):
@@ -167,4 +203,4 @@ class OneNoteSyncRunDetail(BaseModel):
     sync_run_id: str
     created_pages: List[OneNotePageDetail]
     updated_pages: List[OneNotePageDetail]
-    deleted_pages: List[OneNotePageDetail] 
+    deleted_pages: List[OneNotePageDetail]
