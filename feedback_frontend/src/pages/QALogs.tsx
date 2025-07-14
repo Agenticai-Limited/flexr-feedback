@@ -10,11 +10,13 @@ import {
   Button,
   Modal,
   Tag,
-  Tooltip
+  Tooltip,
+  DatePicker
 } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { SearchOutlined, EyeOutlined, CalendarOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -23,7 +25,10 @@ import { qaLogsAPI } from '../services/api';
 
 const { Title, Paragraph } = Typography;
 const { Search } = Input;
+const { RangePicker } = DatePicker;
 dayjs.extend(relativeTime);
+
+type RangeValue = [Dayjs | null, Dayjs | null] | null;
 
 const QALogs: React.FC = () => {
   const [data, setData] = useState<QALog[]>([]);
@@ -32,6 +37,7 @@ const QALogs: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<QALog | null>(null);
+  const [dateRange, setDateRange] = useState<RangeValue>(null);
   const [pagination, setPagination] = useState<TablePaginationConfig>({
     current: 1,
     pageSize: 10,
@@ -41,12 +47,14 @@ const QALogs: React.FC = () => {
   const loadQALogs = async (
     page: number,
     pageSize: number,
-    search: string
+    search: string,
+    startDate?: string,
+    endDate?: string
   ) => {
     try {
       setLoading(true);
       const skip = (page - 1) * pageSize;
-      const response = await qaLogsAPI.getLogs(skip, pageSize, search || undefined);
+      const response = await qaLogsAPI.getLogs(skip, pageSize, search || undefined, startDate, endDate);
       setData(response.data);
       setPagination(prev => ({
         ...prev,
@@ -63,11 +71,18 @@ const QALogs: React.FC = () => {
   };
 
   useEffect(() => {
-    loadQALogs(pagination.current, pagination.pageSize, searchText);
-  }, [pagination.current, pagination.pageSize, searchText]);
+    const startDate = dateRange?.[0]?.startOf('day').toISOString();
+    const endDate = dateRange?.[1]?.endOf('day').toISOString();
+    loadQALogs(pagination.current, pagination.pageSize, searchText, startDate, endDate);
+  }, [pagination.current, pagination.pageSize, searchText, dateRange]);
 
   const handleSearch = (value: string) => {
     setSearchText(value);
+    setPagination(prev => ({ ...prev, current: 1 }));
+  };
+
+  const handleDateChange = (dates: RangeValue) => {
+    setDateRange(dates);
     setPagination(prev => ({ ...prev, current: 1 }));
   };
 
@@ -79,6 +94,15 @@ const QALogs: React.FC = () => {
   const handleTableChange = (newPagination: TablePaginationConfig) => {
     setPagination(newPagination);
   };
+
+  const rangePresets: {
+    label: string;
+    value: [Dayjs, Dayjs];
+  }[] = [
+    { label: 'Recent Week', value: [dayjs().subtract(7, 'd'), dayjs()] },
+    { label: 'Recent Month', value: [dayjs().subtract(1, 'month'), dayjs()] },
+    { label: 'Recent 3 Months', value: [dayjs().subtract(3, 'month'), dayjs()] },
+  ];
 
   // Table columns configuration
   const columns: ColumnsType<QALog> = [
@@ -168,17 +192,23 @@ const QALogs: React.FC = () => {
 
       <Card className="mb-6">
         <Space direction="vertical" size="middle" className="w-full">
-          <div>
-            <Title level={5} className="!mb-2">Search Filters</Title>
-            <Search
-              name="qaLogSearch"
-              placeholder="Search by query content"
-              allowClear
-              enterButton={<SearchOutlined />}
-              size="large"
-              onSearch={handleSearch}
-              className="max-w-md"
-            />
+          <div className="flex justify-between items-center">
+            <div>
+              <Title level={5} className="!mb-2">Search Filters</Title>
+              <Search
+                name="qaLogSearch"
+                placeholder="Search by query content"
+                allowClear
+                enterButton={<SearchOutlined />}
+                size="large"
+                onSearch={handleSearch}
+                className="max-w-md"
+              />
+            </div>
+            <div>
+              <Title level={5} className="!mb-2">Date Range</Title>
+              <RangePicker name="qaLogDateRange" presets={rangePresets} onChange={handleDateChange} />
+            </div>
           </div>
         </Space>
       </Card>

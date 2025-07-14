@@ -117,7 +117,9 @@ def get_feedback_list(
     db: Session,
     skip: int = 0,
     limit: int = 100,
-    liked: Optional[bool] = None
+    liked: Optional[bool] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None
 ) -> dict:
     """
     Get a list of feedback entries with their corresponding queries,
@@ -138,6 +140,11 @@ def get_feedback_list(
         if liked is not None:
             query_base = query_base.filter(Feedback.liked == liked)
         
+        if start_date:
+            query_base = query_base.filter(Feedback.created_at >= start_date)
+        if end_date:
+            query_base = query_base.filter(Feedback.created_at <= end_date)
+        
         total = query_base.count()
 
         results = query_base.order_by(
@@ -150,16 +157,27 @@ def get_feedback_list(
         logger.error(f"Error in get_feedback_list: {str(e)}")
         raise
 
-def get_feedback_dashboard_summary(db: Session, recent_limit: int = 5) -> dict:
+def get_feedback_dashboard_summary(
+    db: Session,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    recent_limit: int = 5
+) -> dict:
     """
     Get a summary of feedback data for the dashboard.
     """
     try:
-        total_feedback = db.query(Feedback).count()
-        positive_feedback_count = db.query(Feedback).filter(Feedback.liked == True).count()
+        query_base = db.query(Feedback)
+        if start_date:
+            query_base = query_base.filter(Feedback.created_at >= start_date)
+        if end_date:
+            query_base = query_base.filter(Feedback.created_at <= end_date)
+
+        total_feedback = query_base.count()
+        positive_feedback_count = query_base.filter(Feedback.liked == True).count()
         negative_feedback_count = total_feedback - positive_feedback_count
 
-        recent_feedback = db.query(
+        recent_feedback_query = db.query(
             Feedback.id,
             QALogs.query,
             Feedback.liked,
@@ -167,7 +185,16 @@ def get_feedback_dashboard_summary(db: Session, recent_limit: int = 5) -> dict:
         ).join(
             QALogs,
             Feedback.message_id == QALogs.task_id
-        ).distinct(QALogs.query).order_by(QALogs.query, desc(Feedback.created_at)).limit(recent_limit).all()
+        )
+        
+        if start_date:
+            recent_feedback_query = recent_feedback_query.filter(Feedback.created_at >= start_date)
+        if end_date:
+            recent_feedback_query = recent_feedback_query.filter(Feedback.created_at <= end_date)
+
+        recent_feedback = recent_feedback_query.distinct(QALogs.query).order_by(
+            QALogs.query, desc(Feedback.created_at)
+        ).limit(recent_limit).all()
 
         return {
             "total_feedback": total_feedback,
@@ -184,7 +211,9 @@ def get_qa_logs(
     db: Session,
     skip: int = 0,
     limit: int = 100,
-    search: Optional[str] = None
+    search: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None
 ) -> dict:
     """
     Get QA logs with optional search and rerank results, with total count.
@@ -193,6 +222,11 @@ def get_qa_logs(
         query_base = db.query(QALogs)
         if search:
             query_base = query_base.filter(QALogs.query.ilike(f"%{search}%"))
+        
+        if start_date:
+            query_base = query_base.filter(QALogs.created_at >= start_date)
+        if end_date:
+            query_base = query_base.filter(QALogs.created_at <= end_date)
 
         total = query_base.count()
 

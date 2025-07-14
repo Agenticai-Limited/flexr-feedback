@@ -123,14 +123,28 @@ export const feedbackAPI = {
   getFeedbacks: async (
     skip = 0,
     limit = 10,
-    liked?: boolean
+    liked?: boolean,
+    start_date?: string,
+    end_date?: string
   ): Promise<FeedbackResponse> => {
-    const params: { skip: number; limit: number; liked?: boolean } = {
+    const params: {
+      skip: number;
+      limit: number;
+      liked?: boolean;
+      start_date?: string;
+      end_date?: string;
+    } = {
       skip,
       limit,
     };
     if (liked !== undefined) {
       params.liked = liked;
+    }
+    if (start_date) {
+      params.start_date = start_date;
+    }
+    if (end_date) {
+      params.end_date = end_date;
     }
     const response: AxiosResponse<FeedbackResponse> = await api.get(
       "/api/v1/feedback",
@@ -141,15 +155,26 @@ export const feedbackAPI = {
   getFeedback: (
     skip: number,
     limit: number,
-    query: string
+    query: string,
+    start_date?: string,
+    end_date?: string
   ): Promise<PaginatedFeedbackResponse> =>
     api
-      .get("/api/v1/feedback", { params: { skip, limit, query } })
+      .get("/api/v1/feedback", {
+        params: { skip, limit, query, start_date, end_date },
+      })
       .then((res) => res.data),
   createFeedback: (data: FeedbackCreate): Promise<Feedback> =>
     api.post("/api/v1/feedback", data).then((res) => res.data),
-  getDashboardSummary: (): Promise<FeedbackDashboardSummary> =>
-    api.get("/api/v1/feedback/dashboard-summary").then((res) => res.data),
+  getDashboardSummary: (
+    start_date?: string,
+    end_date?: string
+  ): Promise<FeedbackDashboardSummary> =>
+    api
+      .get("/api/v1/feedback/dashboard-summary", {
+        params: { start_date, end_date },
+      })
+      .then((res) => res.data),
 };
 
 // QA Logs API
@@ -157,12 +182,14 @@ export const qaLogsAPI = {
   getLogs: async (
     skip = 0,
     limit = 100,
-    search?: string
+    search?: string,
+    start_date?: string,
+    end_date?: string
   ): Promise<PaginatedQALogsResponse> => {
     const response: AxiosResponse<PaginatedQALogsResponse> = await api.get(
       "/api/v1/qa-logs",
       {
-        params: { skip, limit, search },
+        params: { skip, limit, search, start_date, end_date },
       }
     );
     return response.data;

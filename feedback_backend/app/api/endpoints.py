@@ -122,6 +122,8 @@ async def get_feedback_list(
     skip: int = 0,
     limit: int = 100,
     liked: Optional[bool] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(get_current_user)
 ):
@@ -138,17 +140,19 @@ async def get_feedback_list(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Limit must be between 1 and 100"
         )
-    return crud.get_feedback_list(db=db, skip=skip, limit=limit, liked=liked)
+    return crud.get_feedback_list(db=db, skip=skip, limit=limit, liked=liked, start_date=start_date, end_date=end_date)
 
 @router.get("/feedback/dashboard-summary", response_model=schemas.FeedbackDashboardSummary)
 async def get_feedback_dashboard_summary(
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(get_current_user)
 ):
     """
     Get a summary of feedback data for the dashboard.
     """
-    return crud.get_feedback_dashboard_summary(db=db)
+    return crud.get_feedback_dashboard_summary(db=db, start_date=start_date, end_date=end_date)
 
 # QA Logs endpoints
 @router.get("/qa-logs", response_model=schemas.QALogResponse)
@@ -156,6 +160,8 @@ async def get_qa_logs(
     skip: int = 0,
     limit: int = 100,
     search: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(get_current_user)
 ):
@@ -172,7 +178,7 @@ async def get_qa_logs(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Limit must be between 1 and 100"
         )
-    return crud.get_qa_logs(db=db, skip=skip, limit=limit, search=search)
+    return crud.get_qa_logs(db=db, skip=skip, limit=limit, search=search, start_date=start_date, end_date=end_date)
 
 @router.get("/low-relevance-results", response_model=schemas.LowRelevanceResultResponse)
 async def get_low_relevance_results(

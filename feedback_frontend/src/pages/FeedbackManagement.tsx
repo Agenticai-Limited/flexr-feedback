@@ -12,17 +12,22 @@ import {
   Modal,
   Row,
   Col,
-  Statistic
+  Statistic,
+  DatePicker
 } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { LikeOutlined, DislikeOutlined, EyeOutlined, PercentageOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Feedback } from '../types';
 import { feedbackAPI } from '../services/api';
 
 const { Title, Paragraph, Text } = Typography;
+const { RangePicker } = DatePicker;
+
+type RangeValue = [Dayjs | null, Dayjs | null] | null;
 
 const FeedbackManagement: React.FC = () => {
   const [data, setData] = useState<Feedback[]>([]);
@@ -34,20 +39,23 @@ const FeedbackManagement: React.FC = () => {
     total: 0,
   });
   const [filter, setFilter] = useState<'all' | 'liked' | 'disliked'>('all');
+  const [dateRange, setDateRange] = useState<RangeValue>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<Feedback | null>(null);
 
   const fetchData = async (
     page = pagination.current,
     pageSize = pagination.pageSize,
-    currentFilter = filter
+    currentFilter = filter,
+    startDate?: string,
+    endDate?: string
   ) => {
     try {
       setLoading(true);
       const skip = ((page || 1) - 1) * (pageSize || 10);
       const liked = currentFilter === 'all' ? undefined : currentFilter === 'liked';
 
-      const response = await feedbackAPI.getFeedbacks(skip, pageSize, liked);
+      const response = await feedbackAPI.getFeedbacks(skip, pageSize, liked, startDate, endDate);
 
       setData(response.data);
       setPagination(prev => ({ ...prev, total: response.total }));
@@ -60,8 +68,10 @@ const FeedbackManagement: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData(pagination.current, pagination.pageSize, filter);
-  }, [filter, pagination.current, pagination.pageSize]);
+    const startDate = dateRange?.[0]?.startOf('day').toISOString();
+    const endDate = dateRange?.[1]?.endOf('day').toISOString();
+    fetchData(pagination.current, pagination.pageSize, filter, startDate, endDate);
+  }, [filter, pagination.current, pagination.pageSize, dateRange]);
 
   const handleTableChange = (newPagination: TablePaginationConfig) => {
     setPagination(newPagination);
@@ -70,6 +80,11 @@ const FeedbackManagement: React.FC = () => {
   const handleFilterChange = (newFilter: 'all' | 'liked' | 'disliked') => {
     setFilter(newFilter);
     setPagination(prev => ({ ...prev, current: 1 })); // Reset to first page on filter change
+  };
+
+  const handleDateChange = (dates: RangeValue) => {
+    setDateRange(dates);
+    setPagination(prev => ({ ...prev, current: 1 }));
   };
 
   const showDetails = (record: Feedback) => {
@@ -81,6 +96,15 @@ const FeedbackManagement: React.FC = () => {
     setIsModalVisible(false);
     setSelectedRecord(null);
   };
+
+  const rangePresets: {
+    label: string;
+    value: [Dayjs, Dayjs];
+  }[] = [
+    { label: 'Recent Week', value: [dayjs().subtract(7, 'd'), dayjs()] },
+    { label: 'Recent Month', value: [dayjs().subtract(1, 'month'), dayjs()] },
+    { label: 'Recent 3 Months', value: [dayjs().subtract(3, 'month'), dayjs()] },
+  ];
 
   const columns: ColumnsType<Feedback> = [
     { title: 'Query', dataIndex: 'query', key: 'query', width: '25%', render: (text) => <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: 'more' }}>{text}</Paragraph> },
@@ -106,7 +130,14 @@ const FeedbackManagement: React.FC = () => {
       </Row>
 
       <Card>
-        <div className="flex justify-between items-center mb-4"><Radio.Group value={filter} onChange={e => handleFilterChange(e.target.value)}><Radio.Button value="all">All</Radio.Button><Radio.Button value="liked">Satisfied</Radio.Button><Radio.Button value="disliked">Unsatisfied</Radio.Button></Radio.Group></div>
+        <div className="flex justify-between items-center mb-4">
+          <Radio.Group value={filter} onChange={e => handleFilterChange(e.target.value)}>
+            <Radio.Button value="all">All</Radio.Button>
+            <Radio.Button value="liked">Satisfied</Radio.Button>
+            <Radio.Button value="disliked">Unsatisfied</Radio.Button>
+          </Radio.Group>
+          <RangePicker name="feedbackDateRange" presets={rangePresets} onChange={handleDateChange} />
+        </div>
         <Table columns={columns} dataSource={data} rowKey={(record) => `${record.query}-${record.created_at}`} loading={loading} pagination={pagination} onChange={handleTableChange} scroll={{ x: 1400 }} />
       </Card>
 
