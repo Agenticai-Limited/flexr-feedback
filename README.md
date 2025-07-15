@@ -89,6 +89,31 @@ uvicorn app.main:app --host 0.0.0.0 --reload
 
 ---
 
+## Docker
+
+To run the backend in a Docker container, follow these steps:
+
+1.  **Navigate to the backend directory**:
+    ```bash
+    cd feedback_backend
+    ```
+
+2.  **Build the Docker image**:
+    ```bash
+    docker build -t feedback-backend .
+    ```
+
+3.  **Run the Docker container**:
+    ```bash
+    docker run -d -p 8001:8001 --name feedback-backend-container --env-file .env feedback-backend
+    ```
+    - **-d**: Runs the container in detached mode.
+    - **-p 8001:8001**: Maps port 8001 of the container to port 8001 on your host.
+    - **--name**: Assigns a name to your container.
+    - **--env-file .env**: Loads environment variables from your `.env` file. Make sure your `.env` file is in the `feedback_backend` directory.
+
+---
+
 ## Security
 
 * All backend endpoints (except login) require **JWT authentication**.
