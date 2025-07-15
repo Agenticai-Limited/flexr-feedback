@@ -15,6 +15,7 @@ import {
   FeedbackCreate,
   PaginatedFeedbackResponse,
   FeedbackDashboardSummary,
+  PaginatedNoResultSummaryResponse,
 } from "../types";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -219,12 +220,10 @@ export const noResultAPI = {
     start_date?: string,
     end_date?: string
   ): Promise<PaginatedNoResultSummaryResponse> => {
-    const response: AxiosResponse<PaginatedNoResultSummaryResponse> = await api.get(
-      "/api/v1/no-result/summary",
-      {
+    const response: AxiosResponse<PaginatedNoResultSummaryResponse> =
+      await api.get("/api/v1/no-result/summary", {
         params: { limit, start_date, end_date },
-      }
-    );
+      });
     return response.data;
   },
 };
@@ -272,9 +271,7 @@ export const oneNoteSyncLogAPI = {
     return response.data;
   },
   getDetails: async (syncRunId: string) => {
-    const response = await api.get(
-      `/api/v1/onenote-sync/stats/${syncRunId}`
-    );
+    const response = await api.get(`/api/v1/onenote-sync/stats/${syncRunId}`);
     return response.data;
   },
 };
